@@ -218,6 +218,14 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
         holeAt(minX, minZ).ifPresent(hole -> DiscBlocks.forEach(settings, hole.bounds(), hole.cell(), discsOf(hole), minX, minZ, minY, maxY, sink));
     }
 
+    /** See {@link RavineFootprint#forEachDiscBlockToMend} and {@link DiscBlocks#forEachToMend}. */
+    public void forEachDiscBlockToMend(int minX, int minZ, int minY, int maxY, DiscBlockTest loose, DiscBlockSink sink) {
+        if (settings.discThemes().isEmpty()) {
+            return;
+        }
+        holeAt(minX, minZ).ifPresent(hole -> DiscBlocks.forEachToMend(settings, hole.bounds(), hole.cell(), discsOf(hole), minX, minZ, minY, maxY, loose, sink));
+    }
+
     /** Calls {@code sink} with every column where a disc holds water in the chunk whose lowest corner is {@code (minX, minZ)}. */
     public void forEachDiscWater(int minX, int minZ, DiscWaterSink sink) {
         if (settings.discThemes().isEmpty()) {

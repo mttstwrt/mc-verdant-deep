@@ -172,11 +172,11 @@ not change.
 | `by_height`: `bottom`, `top` | 0.5, 2 | 0 to 1000 | the weight of a start on the lowest disc and on the highest; even between them |
 | `min_drop` | 10 | 2 to 256 | the least open air under a lip; up leaves only long falls |
 | `max_per_disc` | 1 | 1 to 4 | falls that may start on one disc |
-| `width` | 1 | 1 to 2 | blocks of water at an ordinary lip |
+| `width` | 3 | 1 to 5 | blocks of water at an ordinary lip and in its channel; narrower is tried where it does not fit |
 | `pool`: `radius`, `depth` | 3, 2 | 2 to 8; 1 to 2 | the pool a fall lands in on a disc |
 | `chain` | 0.6 | 0 to 1 | chance that a fall which landed in a pool goes on over that disc's rim |
 | `max_steps` | 4 | 1 to 8 | the most falls one after another |
-| `curtain`: `chance`, `width`, `min_radius` | 0.2, 3 to 5, 40 | 0 to 1; 2 to 9; 0 to 256 | wide falls, on discs of that radius or more |
+| `curtain`: `chance`, `width`, `min_radius` | 0.4, 4 to 6, 40 | 0 to 1; 2 to 9; 0 to 256 | wide falls, on discs of that radius or more |
 
 - "Not overdoing it" is `count`. As shipped the four holes measured had 2, 4, 4 and 2 falls: 12, one of them wide, one
   going on from its pool.
@@ -436,6 +436,9 @@ hole's gas out once.
   light and one 120 up a third; across the city floor, half is gone in about 40 blocks. `edge` softens it at the mouth
   and the floor. The fog costs no simulation; on the GPU, where a ray passes through it, up to 28 more samples at medium
   quality.
+- The surface (2026-11-02): `gas.fog.above_entrance` 16 ends the haze just over the entrance bowl's join, so the shelves
+  above it stand in clear air; up keeps more haze among the shelves, and leaving it out takes the haze to the lip as
+  before. `gas.surface_rate` 0.4 thins every source on a surface disc, falls and springs included; 1 is as underground.
 - How many sources a hole has, of the 4096 it may send: 2,300 to 3,200 in the eight holes of seed 11 counted (cells 0,0 to
   0,7, outside the game), each worked out in 30 to 70 ms. About half is mist, and up to a third bog. The mangrove's bog
   was thinned to that from 2,500 to 3,700 (ponds `every` 50 to 90, top 120 to 160) to leave room under the cap.

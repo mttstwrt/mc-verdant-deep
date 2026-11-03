@@ -1,0 +1,17 @@
+{
+  "values": [
+    "#minecraft:leaves",
+    "#minecraft:logs",
+    "#minecraft:replaceable_by_trees",
+    "minecraft:bee_nest",
+    "minecraft:cave_vines",
+    "minecraft:cave_vines_plant",
+    "minecraft:cocoa",
+    "minecraft:mangrove_roots",
+    "minecraft:moss_carpet",
+    "minecraft:shroomlight",
+    "minecraft:ochre_froglight",
+    "minecraft:verdant_froglight",
+    "minecraft:pearlescent_froglight"
+  ]
+}

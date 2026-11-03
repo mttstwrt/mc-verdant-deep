@@ -230,7 +230,7 @@ class DiscTest {
         Disc hanging = standing.withSupport(new Disc.Support.Hanging(60, 60));
         for (int x = 0; x <= 38; x++) {
             for (Disc d : List.of(standing, landed, hanging)) {
-                OptionalInt y = d.hangBlockAt(SHAPE, x);
+                OptionalInt y = d.hangBlockAt(SHAPE, x, 0);
                 if (y.isEmpty()) {
                     assertTrue(d != hanging && x <= SHAPE.stemRadiusFor(40), "nowhere to hang from at " + x);
                     continue;
@@ -241,9 +241,9 @@ class DiscTest {
         }
         double underside = standing.undersideAt(SHAPE, 10);
         assertTrue(standing.rockDistance(SHAPE, 10, Math.floor(underside), 0) < 0, "under the middle the flare fills the block under the platform");
-        assertTrue(standing.hangBlockAt(SHAPE, 10).getAsInt() < Math.floor(underside) - 3, "so what hangs starts under the flare");
-        assertEquals((int) Math.floor(hanging.undersideAt(SHAPE, 10)), hanging.hangBlockAt(SHAPE, 10).getAsInt(), "a hanging disc has no flare");
-        assertEquals(12, landed.hangBlockAt(SHAPE, 10).getAsInt(), "a stem that lands is cut off with its flare");
+        assertTrue(standing.hangBlockAt(SHAPE, 10, 0).getAsInt() < Math.floor(underside) - 3, "so what hangs starts under the flare");
+        assertEquals((int) Math.floor(hanging.undersideAt(SHAPE, 10)), hanging.hangBlockAt(SHAPE, 10, 0).getAsInt(), "a hanging disc has no flare");
+        assertEquals(12, landed.hangBlockAt(SHAPE, 10, 0).getAsInt(), "a stem that lands is cut off with its flare");
     }
 
 

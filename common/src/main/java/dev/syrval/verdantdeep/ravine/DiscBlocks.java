@@ -2,6 +2,7 @@ package dev.syrval.verdantdeep.ravine;
 
 import java.util.List;
 import java.util.Optional;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider;
 
 /**
@@ -15,6 +16,8 @@ import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvi
  */
 final class DiscBlocks {
     private static final int CHUNK_SIZE = 16;
+    // What mends a disc's rock where its palette leaves the terrain's own: a stem with no material of its own.
+    private static final BlockStateProvider PLAIN_ROCK = BlockStateProvider.simple(Blocks.STONE);
 
     private DiscBlocks() {}
 
@@ -22,7 +25,23 @@ final class DiscBlocks {
     static void forEach(
             RavineSettings settings, RavineBounds bounds, RavineCell cell, CellDiscs cellDiscs,
             int minX, int minZ, int minY, int maxY, DiscBlockSink sink) {
-        var painter = new Painter(settings, bounds, cell, cellDiscs.layout(), minX, minZ, minY, maxY, sink);
+        forEach(new Painter(settings, bounds, cell, cellDiscs.layout(), minX, minZ, minY, maxY, DiscBlockTest.ALL, Optional.empty(), sink), cellDiscs);
+    }
+
+    /**
+     * The blocks of the chunk whose lowest corner is {@code (minX, minZ)} that are a disc's own, platform, stem, bracket or the
+     * ground over the platform, and that {@code loose} picks out, each with what it should be. Decoration comes after the
+     * painting and does not ask whose rock it writes into: an ore or a disk of a biome round a disc can leave gravel in its
+     * platform, which falls and lets its water out. Where the palette has nothing for a part, as for most stems, it is stone.
+     */
+    static void forEachToMend(
+            RavineSettings settings, RavineBounds bounds, RavineCell cell, CellDiscs cellDiscs,
+            int minX, int minZ, int minY, int maxY, DiscBlockTest loose, DiscBlockSink sink) {
+        forEach(new Painter(settings, bounds, cell, cellDiscs.layout(), minX, minZ, minY, maxY, loose, Optional.of(PLAIN_ROCK), sink), cellDiscs);
+        forEachMound(cellDiscs, minX, minZ, minY, maxY, loose, sink);
+    }
+
+    private static void forEach(Painter painter, CellDiscs cellDiscs) {
         List<Disc> discs = cellDiscs.layout().discs();
         // Stems and roots first, platforms second, so a platform keeps its own material where a stem passes through it.
         for (int i = 0; i < discs.size(); i++) {
@@ -86,6 +105,10 @@ final class DiscBlocks {
      * down on the platform, or the hole's wall lies on it, that stays, which is for whoever writes them to see to.
      */
     static void forEachMound(CellDiscs cellDiscs, int minX, int minZ, int minY, int maxY, DiscBlockSink sink) {
+        forEachMound(cellDiscs, minX, minZ, minY, maxY, DiscBlockTest.ALL, sink);
+    }
+
+    private static void forEachMound(CellDiscs cellDiscs, int minX, int minZ, int minY, int maxY, DiscBlockTest wanted, DiscBlockSink sink) {
         List<Disc> discs = cellDiscs.layout().discs();
         for (int i = 0; i < discs.size(); i++) {
             Optional<DiscTheme> theme = cellDiscs.themes().get(i);
@@ -109,6 +132,9 @@ final class DiscBlocks {
                     Optional<BlockStateProvider> outcrop = ground.isOutcropAt(x, z) ? ground.relief().outcrops().map(DiscRelief.Outcrops::block) : Optional.empty();
                     Optional<DiscGround.Rim> rim = ground.rimAt(x, z);
                     for (int y = Math.max(rock + 1, minY); y <= Math.min(rock + rise, maxY - 1); y++) {
+                        if (!wanted.test(x, y, z)) {
+                            continue;
+                        }
                         double belowTop = rock + rise - y + 0.5;
                         int at = y;
                         Optional<BlockStateProvider> block = outcrop.or(() -> rim.flatMap(r -> r.at(at)))
@@ -124,7 +150,7 @@ final class DiscBlocks {
 
     private record Painter(
             RavineSettings settings, RavineBounds bounds, RavineCell cell, DiscLayout layout,
-            int minX, int minZ, int minY, int maxY, DiscBlockSink sink) {
+            int minX, int minZ, int minY, int maxY, DiscBlockTest wanted, Optional<BlockStateProvider> fallback, DiscBlockSink sink) {
 
         private DiscShape shape() {
             return settings.discs();
@@ -149,10 +175,12 @@ final class DiscBlocks {
                     int rise = ground.riseAt(x, z);
                     Optional<DiscGround.Rim> rim = ground.rimAt(x, z);
                     for (int y = bottom; y <= top; y++) {
-                        if (disc.pointAt(shape(), x, y, z).orElse(null) instanceof DiscPoint.Platform(double belowTop, double aboveUnderside)) {
+                        if (disc.pointAt(shape(), x, y, z).orElse(null) instanceof DiscPoint.Platform(double belowTop, double aboveUnderside)
+                                && wanted.test(x, y, z)) {
                             int at = y;
                             Optional<BlockStateProvider> block = rim.flatMap(r -> r.at(at))
-                                    .or(() -> palette.blockAt(new DiscPoint.Platform(belowTop + rise, aboveUnderside)));
+                                    .or(() -> palette.blockAt(new DiscPoint.Platform(belowTop + rise, aboveUnderside)))
+                                    .or(this::fallback);
                             if (block.isPresent()) {
                                 sink.accept(x, y, z, block.get());
                             }
@@ -164,8 +192,13 @@ final class DiscBlocks {
 
         void support(Disc disc, DiscPalette palette) {
             switch (disc.support()) {
-                case Disc.Support.Attached attached -> {
-                    // Its back meets the retained wall; there is no separate support to paint.
+                case Disc.Support.Bracket bracket -> {
+                    // The bracket is deepest at the back, as deep as the radius, and never under its own bottom.
+                    double underside = disc.undersideAt(shape(), 0);
+                    int bottom = (int) Math.ceil(Math.max(bracket.bottom(), underside - disc.radius()));
+                    for (int y = Math.max(bottom, minY); y <= Math.min((int) Math.floor(underside + disc.bowl()), maxY - 1); y++) {
+                        slice(disc, palette, y, disc.radius(), true);
+                    }
                 }
                 case Disc.Support.Standing standing -> {
                     // The underside is lowest in the middle and rises with the bowl, and the stem's flare is under all of it.
@@ -202,10 +235,10 @@ final class DiscBlocks {
 
         private Optional<BlockStateProvider> blockAt(Disc disc, DiscPalette palette, int x, int y, int z, boolean stem) {
             Optional<DiscPoint> point = disc.pointAt(shape(), x, y, z);
-            if (point.isEmpty() || (point.get() instanceof DiscPoint.Stem) != stem) {
+            if (point.isEmpty() || (point.get() instanceof DiscPoint.Stem) != stem || !wanted.test(x, y, z)) {
                 return Optional.empty();
             }
-            Optional<BlockStateProvider> block = palette.blockAt(point.get());
+            Optional<BlockStateProvider> block = palette.blockAt(point.get()).or(this::fallback);
             // The costly question, whether the terrain put this part of the stem here, is asked last.
             if (stem && block.isPresent() && RavineShape.rockDistance(settings, bounds, cell, layout, x, y, z) >= 0) {
                 return Optional.empty();

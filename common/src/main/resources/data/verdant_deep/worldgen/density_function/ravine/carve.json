@@ -1967,7 +1967,7 @@
       "growth": [
         {
           "feature": "verdant_deep:disc/glow_bulb",
-          "every": 600
+          "every": 2400
         },
         {
           "feature": "minecraft:super_birch_bees_0002",
@@ -2003,11 +2003,11 @@
         },
         {
           "feature": "verdant_deep:disc/shroomlight_in_leaves",
-          "every": 1
+          "every": 4
         },
         {
           "feature": "verdant_deep:disc/glow_berries_canopy",
-          "every": 30,
+          "every": 90,
           "patches": {
             "size": 28,
             "cover": 0.5
@@ -2015,7 +2015,7 @@
         },
         {
           "feature": "verdant_deep:disc/glow_lichen_high",
-          "every": 24,
+          "every": 72,
           "patches": {
             "size": 28,
             "cover": 0.7
@@ -2023,12 +2023,12 @@
         },
         {
           "feature": "verdant_deep:disc/glow_berries_over_drop",
-          "every": 20,
+          "every": 40,
           "on": "underside"
         },
         {
           "feature": "verdant_deep:disc/glow_lichen_high",
-          "every": 24,
+          "every": 48,
           "on": "underside"
         },
         {
@@ -2343,11 +2343,11 @@
         },
         {
           "feature": "verdant_deep:disc/shroomlight_in_leaves",
-          "every": 1
+          "every": 4
         },
         {
           "feature": "verdant_deep:disc/glow_berries_canopy",
-          "every": 30,
+          "every": 90,
           "patches": {
             "size": 36,
             "cover": 0.5
@@ -2355,7 +2355,7 @@
         },
         {
           "feature": "verdant_deep:disc/glow_lichen_high",
-          "every": 24,
+          "every": 72,
           "patches": {
             "size": 36,
             "cover": 0.7
@@ -2363,12 +2363,12 @@
         },
         {
           "feature": "verdant_deep:disc/glow_berries_over_drop",
-          "every": 20,
+          "every": 40,
           "on": "underside"
         },
         {
           "feature": "verdant_deep:disc/glow_lichen_high",
-          "every": 24,
+          "every": 48,
           "on": "underside"
         },
         {
@@ -2714,11 +2714,11 @@
         },
         {
           "feature": "verdant_deep:disc/glow_lichen_high",
-          "every": 24
+          "every": 72
         },
         {
           "feature": "verdant_deep:disc/glow_lichen_high",
-          "every": 24,
+          "every": 48,
           "on": "underside"
         }
       ],
@@ -2953,16 +2953,16 @@
         },
         {
           "feature": "verdant_deep:disc/sea_pickles",
-          "every": 60,
+          "every": 180,
           "on": "water"
         },
         {
           "feature": "verdant_deep:disc/shroomlight_in_leaves",
-          "every": 1
+          "every": 4
         },
         {
           "feature": "verdant_deep:disc/glow_berries_canopy",
-          "every": 30,
+          "every": 90,
           "patches": {
             "size": 30,
             "cover": 0.5
@@ -2970,7 +2970,7 @@
         },
         {
           "feature": "verdant_deep:disc/glow_lichen_high",
-          "every": 24,
+          "every": 72,
           "patches": {
             "size": 30,
             "cover": 0.7
@@ -2978,12 +2978,12 @@
         },
         {
           "feature": "verdant_deep:disc/glow_berries_over_drop",
-          "every": 20,
+          "every": 40,
           "on": "underside"
         },
         {
           "feature": "verdant_deep:disc/glow_lichen_high",
-          "every": 24,
+          "every": 48,
           "on": "underside"
         },
         {
@@ -3358,21 +3358,21 @@
         },
         {
           "feature": "verdant_deep:disc/sea_pickles_midpond",
-          "every": 8,
+          "every": 24,
           "on": "water"
         },
         {
           "feature": "verdant_deep:disc/glow_lichen_high",
-          "every": 24
+          "every": 72
         },
         {
           "feature": "verdant_deep:disc/glow_berries_over_drop",
-          "every": 20,
+          "every": 40,
           "on": "underside"
         },
         {
           "feature": "verdant_deep:disc/glow_lichen_high",
-          "every": 24,
+          "every": 48,
           "on": "underside"
         },
         {
@@ -3631,7 +3631,7 @@
       "bottom": 0.5,
       "top": 2
     },
-    "width": 1,
+    "width": 3,
     "min_drop": 10,
     "max_per_disc": 1,
     "pool": {
@@ -3643,8 +3643,8 @@
     "curtain": {
       "chance": 0.4,
       "width": {
-        "min_inclusive": 3,
-        "max_inclusive": 5
+        "min_inclusive": 4,
+        "max_inclusive": 6
       },
       "min_radius": 40
     },
@@ -3673,7 +3673,8 @@
       "medium": "verdant_deep:haze",
       "bottom_density": 0.022,
       "top_density": 0.004,
-      "edge": 24
+      "edge": 24,
+      "above_entrance": 16
     },
     "falls": {
       "spray": {
@@ -3709,6 +3710,7 @@
         },
         "rate": 0.15
       }
-    ]
+    ],
+    "surface_rate": 0.4
   }
 }

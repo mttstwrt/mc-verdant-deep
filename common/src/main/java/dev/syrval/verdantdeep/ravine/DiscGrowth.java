@@ -61,7 +61,7 @@ final class DiscGrowth {
             double fromAxis) {
         return switch (on) {
             case TOP -> OptionalInt.of(ground.topBlockAt(x, z) + 1);
-            case UNDERSIDE -> disc.hangBlockAt(shape, fromAxis);
+            case UNDERSIDE -> disc.hangBlockAt(shape, x, z);
             case WATER -> {
                 Optional<DiscTerraces.Water> pool = ground.terraces().flatMap(plan -> plan.waterAt(x, z));
                 if (pool.isPresent()) {

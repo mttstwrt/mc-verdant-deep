@@ -1,6 +1,8 @@
 package dev.syrval.verdantdeep.compat;
 
 import dev.syrval.verdantdeep.VerdantDeep;
+import dev.syrval.verdantdeep.ravine.DiscBlockTest;
+import dev.syrval.verdantdeep.ravine.DiscFallSink;
 import dev.syrval.verdantdeep.ravine.DiscGrowthSink;
 import dev.syrval.verdantdeep.ravine.DiscPlot;
 import dev.syrval.verdantdeep.ravine.DiscSpringSink;
@@ -16,10 +18,14 @@ import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LiquidBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.GenerationStep;
@@ -42,6 +48,10 @@ public final class DiscGrower {
     private static final long SALT = 0x4F41_4752_4F57_5321L;
     // Feature seeds for the plots of a chunk are spaced this far apart, as vanilla spaces the features of a stage.
     private static final int FEATURES_PER_PLOT = 10_000;
+    // What growth may leave in a fall's water: leaves and plants take the place of water, and a branch can cross a drop.
+    private static final TagKey<Block> KEPT_OUT_OF_FALLS = TagKey.create(Registries.BLOCK, VerdantDeep.id("kept_out_of_falls"));
+    // What falls when the block under it goes: in a disc, a way out for its water.
+    private static final TagKey<Block> KEPT_OUT_OF_DISCS = TagKey.create(Registries.BLOCK, VerdantDeep.id("kept_out_of_discs"));
 
     private DiscGrower() {}
 
@@ -61,6 +71,70 @@ public final class DiscGrower {
         // Last of what grows, so that what hangs under a root finds a disc's trees already standing in its way.
         footprint.forEachRootGrowth(chunkPos.getMinBlockX(), chunkPos.getMinBlockZ(), level.getMinBuildHeight(), level.getMaxBuildHeight(), place);
         openSprings(level, generator, footprint, chunkPos, draws);
+        mendDiscs(level, footprint, chunkPos, draws);
+        keepFallsOpen(level, footprint, chunkPos);
+    }
+
+    /**
+     * Gives a disc its own material back wherever this chunk's decoration left a loose block in it (see
+     * {@code DiscBlocks.forEachToMend}). As with the falls below, the neighbours are looked at too, since vanilla's ores and
+     * disks reach into them, so whichever chunk leaves gravel in a disc also takes it out.
+     */
+    private static void mendDiscs(WorldGenLevel level, RavineFootprint footprint, ChunkPos chunkPos, WorldgenRandom draws) {
+        var pos = new BlockPos.MutableBlockPos();
+        DiscBlockTest loose = (x, y, z) -> level.getBlockState(pos.set(x, y, z)).is(KEPT_OUT_OF_DISCS);
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                ChunkPos near = new ChunkPos(chunkPos.x + dx, chunkPos.z + dz);
+                footprint.forEachDiscBlockToMend(near.getMinBlockX(), near.getMinBlockZ(), level.getMinBuildHeight(), level.getMaxBuildHeight(), loose,
+                        (x, y, z, block) -> level.setBlock(pos.set(x, y, z), block.getState(draws, pos), Block.UPDATE_CLIENTS));
+            }
+        }
+    }
+
+    /**
+     * Gives a fall's water back wherever growth has taken it. Nothing starts near a fall (see {@code DiscFalls}), but a crown
+     * spreads further than that, and a single leaf in a drop stops the water there or a bush in a channel dams it. Growth
+     * reaches into a chunk's neighbours, so their falls are looked at too: whichever chunk grows a block into a fall's water
+     * also takes it out again, whatever order the chunks grow in.
+     */
+    private static void keepFallsOpen(WorldGenLevel level, RavineFootprint footprint, ChunkPos chunkPos) {
+        BlockState still = Blocks.WATER.defaultBlockState();
+        BlockState falling = still.setValue(LiquidBlock.LEVEL, 8);
+        var pos = new BlockPos.MutableBlockPos();
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                ChunkPos near = new ChunkPos(chunkPos.x + dx, chunkPos.z + dz);
+                footprint.forEachFallWater(near.getMinBlockX(), near.getMinBlockZ(), new DiscFallSink() {
+                    @Override
+                    public void accept(int x, int surface, int z, int depth, int cut, boolean lip) {
+                        for (int below = 0; below < depth; below++) {
+                            giveBack(level, pos.set(x, surface - below, z), still);
+                        }
+                    }
+
+                    @Override
+                    public void flow(int x, int z, int top, int bottom) {
+                        for (int y = top; y >= bottom; y--) {
+                            giveBack(level, pos.set(x, y, z), falling);
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    private static void giveBack(WorldGenLevel level, BlockPos.MutableBlockPos pos, BlockState water) {
+        if (level.isOutsideBuildHeight(pos)) {
+            return;
+        }
+        // The tag holds water too, as what trees may replace does.
+        BlockState there = level.getBlockState(pos);
+        if (there.is(KEPT_OUT_OF_FALLS) && !there.is(Blocks.WATER)) {
+            level.setBlock(pos, water, Block.UPDATE_CLIENTS);
+            // As the painter does for the water it lays: the game runs it when the chunk comes alive.
+            level.getChunk(pos).markPosForPostprocessing(pos);
+        }
     }
 
     // A spring is a feature given a block in the wall behind a disc. The wall is whatever the terrain left there, so the

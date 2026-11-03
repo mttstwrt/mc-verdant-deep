@@ -15,8 +15,11 @@ import net.minecraft.resources.ResourceLocation;
  * @param falls   gas at each fall
  * @param springs gas where each spring's water comes down on its disc, resting on the pool there
  * @param cavern  gas spread over the cavern's floor, each list entry with draws of its own
+ * @param surfaceRate what share of their rate the sources on a surface disc give (see {@link DiscLayout#isSurface}): its
+ *                theme's, a fall's that leaves it and a spring's over it. The surface is in daylight, where a thinner
+ *                gas reads as much as a thicker one does underground; 1 leaves them as they are
  */
-public record GasSettings(Optional<Fog> fog, Optional<Falls> falls, Optional<Source> springs, List<Spread> cavern) {
+public record GasSettings(Optional<Fog> fog, Optional<Falls> falls, Optional<Source> springs, List<Spread> cavern, float surfaceRate) {
     /** The most density a source may give each cell a second, as the gas library allows. */
     static final float MOST_RATE = 64;
     /** The most density a fog may have, which is thicker than anything worth seeing through. */
@@ -25,7 +28,8 @@ public record GasSettings(Optional<Fog> fog, Optional<Falls> falls, Optional<Sou
             Fog.CODEC.optionalFieldOf("fog").forGetter(GasSettings::fog),
             Falls.CODEC.optionalFieldOf("falls").forGetter(GasSettings::falls),
             Source.CODEC.optionalFieldOf("springs").forGetter(GasSettings::springs),
-            Spread.CODEC.listOf().optionalFieldOf("cavern", List.of()).forGetter(GasSettings::cavern)
+            Spread.CODEC.listOf().optionalFieldOf("cavern", List.of()).forGetter(GasSettings::cavern),
+            Codec.floatRange(0, 1).optionalFieldOf("surface_rate", 1F).forGetter(GasSettings::surfaceRate)
     ).apply(i, GasSettings::new));
 
     public GasSettings {
@@ -43,14 +47,20 @@ public record GasSettings(Optional<Fog> fog, Optional<Falls> falls, Optional<Sou
      * library has it: light through {@code n} blocks of it is dimmed to {@code exp(-opacity * density * n)}, the opacity being
      * the medium's.
      *
+     * <p>With {@code above_entrance}, a cone's fog stops that many blocks over where its entrance bowl meets the cone (see
+     * {@link RimSettings.Collar#depth}) instead of at the lip, so that it thins out across the lowest of the bowl's shelves
+     * and leaves the surface's air clear; {@code top_density} is then its density there. A cone without a bowl, or one
+     * whose bowl starts nearer the lip than that, has it up to the lip.
+     *
      * @param medium how it looks: the appearance of one of the gas library's media, whose simulation plays no part
      */
-    public record Fog(ResourceLocation medium, float bottomDensity, float topDensity, float edge) {
+    public record Fog(ResourceLocation medium, float bottomDensity, float topDensity, float edge, Optional<Float> aboveEntrance) {
         static final Codec<Fog> CODEC = RecordCodecBuilder.create(i -> i.group(
                 ResourceLocation.CODEC.fieldOf("medium").forGetter(Fog::medium),
                 Codec.floatRange(0, MOST_DENSITY).fieldOf("bottom_density").forGetter(Fog::bottomDensity),
                 Codec.floatRange(0, MOST_DENSITY).fieldOf("top_density").forGetter(Fog::topDensity),
-                Codec.floatRange(0, 64).optionalFieldOf("edge", 16F).forGetter(Fog::edge)
+                Codec.floatRange(0, 64).optionalFieldOf("edge", 16F).forGetter(Fog::edge),
+                Codec.floatRange(0, 256).optionalFieldOf("above_entrance").forGetter(Fog::aboveEntrance)
         ).apply(i, Fog::new));
     }
 

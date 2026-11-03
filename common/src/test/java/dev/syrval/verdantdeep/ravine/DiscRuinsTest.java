@@ -402,8 +402,8 @@ class DiscRuinsTest {
         List<Standing> oneLayerIn = withSink(1);
         List<Standing> twoLayersIn = withSink(2);
         List<Standing> withACellar = withSink(5);
-        long groundOffTheStem = onTheGround.stream().filter(ruin -> ruin.fromAxis() >= 1).count();
-        long cellarOffTheStem = withACellar.stream().filter(ruin -> ruin.fromAxis() >= 1).count();
+        long groundOffTheStem = onStems(onTheGround).stream().filter(ruin -> ruin.fromAxis() >= 1).count();
+        long cellarOffTheStem = onStems(withACellar).stream().filter(ruin -> ruin.fromAxis() >= 1).count();
         String counts = onTheGround.size() + " on the ground (" + groundOffTheStem + " of them away from the middle of their disc), " + oneLayerIn.size()
                 + " a layer in it, " + twoLayersIn.size() + " two layers, " + withACellar.size() + " five (" + cellarOffTheStem + ")";
         assertTrue(onTheGround.size() > 150, counts);
@@ -415,8 +415,14 @@ class DiscRuinsTest {
         // piece is tried first, or where the disc lies in the hole's wall, as much of many discs does. That each of these has
         // the rock was seen above, column by column.
         assertTrue(cellarOffTheStem > 0 && cellarOffTheStem < 0.6 * groundOffTheStem, "away from the stem fewer places are that deep: " + counts);
-        assertTrue(withACellar.size() - cellarOffTheStem > 100, "over the stem most discs are: " + counts);
-        assertTrue(onTheGround.size() - groundOffTheStem < 20, "which a piece on the ground is not tried at first: " + counts);
+        assertTrue(onStems(withACellar).size() - cellarOffTheStem > 100, "over the stem most discs are: " + counts);
+        assertTrue(onStems(onTheGround).size() - groundOffTheStem < 20, "which a piece on the ground is not tried at first: " + counts);
+    }
+
+    // A shelf in the entrance bowl has a bracket in place of a stem, as deep as its radius at the back, so its rock is deep
+    // away from its middle too.
+    private static List<Standing> onStems(List<Standing> ruins) {
+        return ruins.stream().filter(ruin -> !(ruin.disc().support() instanceof Disc.Support.Bracket)).toList();
     }
 
     @Test

@@ -84,7 +84,7 @@ class HoleGasTest {
             int z = (int) Math.floor(source.z());
             boolean hanging = false;
             for (Disc disc : discs.layout().discs()) {
-                OptionalInt open = disc.hangBlockAt(settings.discs(), Math.hypot(x - disc.x(), z - disc.z()));
+                OptionalInt open = disc.hangBlockAt(settings.discs(), x, z);
                 // The cylinder's top is the underside of the rock, the top of the open block under it.
                 hanging |= open.isPresent() && source.y() + 3 == open.getAsInt() + 1;
             }

@@ -54,13 +54,14 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
         List<GasSource> found = new ArrayList<>();
         List<GasFog> fogs = new ArrayList<>();
         // The hole's own first: there are few of them, and a cap that bites takes the last of the themes' many.
+        float surfaceRate = settings.dressing().gas().map(GasSettings::surfaceRate).orElse(1F);
         settings.dressing().gas().ifPresent(gas -> {
             gas.fog().ifPresent(fog -> fogs.add(fromFog(settings, fog, bounds, cell)));
-            gas.falls().ifPresent(falls -> fromFalls(falls, discs.falls(), found));
-            gas.springs().ifPresent(springs -> fromSprings(springs, discs.falls(), found));
+            gas.falls().ifPresent(falls -> fromFalls(falls, discs, surfaceRate, found));
+            gas.springs().ifPresent(springs -> fromSprings(springs, discs, surfaceRate, found));
             fromCavern(settings, gas.cavern(), bounds, cell, found);
         });
-        fromThemes(settings, cell, discs, found);
+        fromThemes(settings, cell, discs, surfaceRate, found);
         List<GasFlow> flows = flowsOf(discs);
         int dropped = Math.max(0, found.size() - MAX_SOURCES);
         return new HoleGas(found.subList(0, found.size() - dropped), fogs, flows, dropped);
@@ -84,7 +85,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
     }
 
     // Chunk by chunk, as growth is, because what keeps lava clear of what burns is worked out for a chunk at a time.
-    private static void fromThemes(RavineSettings settings, RavineCell cell, CellDiscs discs, List<GasSource> found) {
+    private static void fromThemes(RavineSettings settings, RavineCell cell, CellDiscs discs, float surfaceRate, List<GasSource> found) {
         List<Disc> all = discs.layout().discs();
         int minChunkX = Integer.MAX_VALUE;
         int maxChunkX = Integer.MIN_VALUE;
@@ -103,12 +104,13 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
         }
         for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
             for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
-                fromThemesIn(settings, cell, discs, chunkX * CHUNK_SIZE, chunkZ * CHUNK_SIZE, found);
+                fromThemesIn(settings, cell, discs, surfaceRate, chunkX * CHUNK_SIZE, chunkZ * CHUNK_SIZE, found);
             }
         }
     }
 
-    private static void fromThemesIn(RavineSettings settings, RavineCell cell, CellDiscs discs, int minX, int minZ, List<GasSource> found) {
+    private static void fromThemesIn(
+            RavineSettings settings, RavineCell cell, CellDiscs discs, float surfaceRate, int minX, int minZ, List<GasSource> found) {
         List<Disc> all = discs.layout().discs();
         DiscShape shape = settings.discs();
         var lava = new DiscLava(discs, minX, minZ);
@@ -121,6 +123,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
             List<DiscTheme.Gas> gas = theme.get().gas();
             double wildness = theme.get().wildness().factorFor(cell.hash(), i);
             DiscGround ground = discs.grounds().get(i);
+            float share = rateOn(discs, i, surfaceRate);
             int index = i;
             for (int g = 0; g < Math.min(gas.size(), MAX_GASES); g++) {
                 DiscTheme.Gas each = gas.get(g);
@@ -128,7 +131,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
                         (x, z) -> each.weightAt(cell.hash(), index, disc, x, z), minX, minZ, (x, z, fromAxis) -> {
                             OptionalDouble y = anchorOf(each, theme.get(), disc, ground, shape, lava, cell.hash(), index, x, z, fromAxis);
                             if (y.isPresent()) {
-                                found.add(new GasSource(each.medium(), each.shape(), x + 0.5, y.getAsDouble(), z + 0.5, each.rate()));
+                                found.add(new GasSource(each.medium(), each.shape(), x + 0.5, y.getAsDouble(), z + 0.5, each.rate() * share));
                             }
                         });
             }
@@ -151,7 +154,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
                 yield depth > 0 ? OptionalDouble.of(gas.shape().standingOn(disc.topBlockAt(fromAxis) + 1)) : OptionalDouble.empty();
             }
             case UNDERSIDE -> {
-                OptionalInt open = disc.hangBlockAt(shape, fromAxis);
+                OptionalInt open = disc.hangBlockAt(shape, x, z);
                 yield open.isPresent() ? OptionalDouble.of(gas.shape().hangingFrom(open.getAsInt() + 1)) : OptionalDouble.empty();
             }
             default -> {
@@ -161,9 +164,14 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
         };
     }
 
-    // Of a cone, from round its base and the cavern at the floor to round its mouth at the top; of a ravine, the cavern. It
-    // reaches an edge past the walls, and as far again as their unevenness moves them, and an edge below the floor, so that it
-    // is at its full thickness wherever they are.
+    // What share of its rate a source on a disc gives: less on a surface disc.
+    private static float rateOn(CellDiscs discs, int disc, float surfaceRate) {
+        return discs.layout().isSurface(discs.layout().discs().get(disc)) ? surfaceRate : 1;
+    }
+
+    // Of a cone, from round its base and the cavern at the floor to round its mouth at the top, or to its above_entrance over
+    // the bowl's join; of a ravine, the cavern. It reaches an edge past the walls, and as far again as their unevenness moves
+    // them, and an edge below the floor, so that it is at its full thickness wherever they are.
     private static GasFog fromFog(RavineSettings settings, GasSettings.Fog fog, RavineBounds bounds, RavineCell cell) {
         float edge = fog.edge();
         double base = bounds.floorY() - edge;
@@ -174,11 +182,14 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
                     fog.bottomDensity(), fog.topDensity(), edge);
         }
         ConeSettings cone = settings.cone().get();
-        double height = bounds.topY() - base;
-        double top = cone.topRadius() + reach;
-        // The narrowest that, with that top, holds the wall that far in at every height of the hole.
+        double ceiling = fog.aboveEntrance()
+                .map(above -> Math.min(bounds.topY(), ConeShape.entranceFloor(cone, bounds, cell) + above))
+                .orElse((double) bounds.topY());
+        double height = ceiling - base;
+        double top = ConeShape.radiusAt(settings, cone, bounds, ceiling) + reach;
+        // The narrowest that, with that top, holds the wall that far in at every height it fills.
         double bottom = top;
-        for (int y = bounds.floorY(); y < bounds.topY(); y++) {
+        for (int y = bounds.floorY(); y < ceiling; y++) {
             double up = (y - base) / height;
             bottom = Math.max(bottom, (wallAt(settings, cone, bounds, y) + reach - top * up) / (1 - up));
         }
@@ -195,21 +206,24 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
 
     // A fall's water comes down through `drop` open blocks under its level onto the water it lands in, whose top is the floor of
     // the lowest of them.
-    private static void fromFalls(GasSettings.Falls falls, DiscFalls all, List<GasSource> found) {
-        for (DiscFalls.Fall fall : all.falls()) {
+    private static void fromFalls(GasSettings.Falls falls, CellDiscs discs, float surfaceRate, List<GasSource> found) {
+        for (DiscFalls.Fall fall : discs.falls().falls()) {
             double x = fall.x() + 0.5;
             double z = fall.z() + 0.5;
             int landing = fall.level() - fall.drop();
-            falls.spray().ifPresent(spray -> found.add(new GasSource(spray.medium(), spray.shape(), x, spray.shape().standingOn(landing), z, spray.rate())));
+            float share = rateOn(discs, fall.from(), surfaceRate);
+            falls.spray().ifPresent(spray -> found.add(
+                    new GasSource(spray.medium(), spray.shape(), x, spray.shape().standingOn(landing), z, spray.rate() * share)));
             falls.curtain().ifPresent(curtain -> found.add(new GasSource(
-                    curtain.medium(), new GasShape.Cylinder(fall.width() / 2F + curtain.margin(), fall.drop()), x, landing, z, curtain.rate())));
+                    curtain.medium(), new GasShape.Cylinder(fall.width() / 2F + curtain.margin(), fall.drop()), x, landing, z, curtain.rate() * share)));
         }
     }
 
     // A spring's level is the top of the pool its water comes down in.
-    private static void fromSprings(GasSettings.Source springs, DiscFalls all, List<GasSource> found) {
-        for (DiscFalls.Spring spring : all.springs()) {
-            found.add(new GasSource(springs.medium(), springs.shape(), spring.x() + 0.5, springs.shape().standingOn(spring.level() + 1), spring.z() + 0.5, springs.rate()));
+    private static void fromSprings(GasSettings.Source springs, CellDiscs discs, float surfaceRate, List<GasSource> found) {
+        for (DiscFalls.Spring spring : discs.falls().springs()) {
+            found.add(new GasSource(springs.medium(), springs.shape(), spring.x() + 0.5, springs.shape().standingOn(spring.level() + 1), spring.z() + 0.5,
+                    springs.rate() * rateOn(discs, spring.disc(), surfaceRate)));
         }
     }
 

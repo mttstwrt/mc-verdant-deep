@@ -501,11 +501,18 @@ final class DiscFalls {
             return angles;
         }
 
+        // A wide channel needs more level ground and a wider landing, so where its width will not go a narrower one is tried:
+        // an ordinary fall's, and last a single block.
         private boolean start(Start start, boolean ontoADiscOnly) {
             Disc disc = discs.get(start.disc());
-            int width = widthFor(start, disc);
-            return start(start, width, ontoADiscOnly)
-                    || width > falls.width() && start(start, falls.width(), ontoADiscOnly);
+            int tried = Integer.MAX_VALUE;
+            for (int width : new int[] {widthFor(start, disc), falls.width(), 1}) {
+                if (width < tried && start(start, width, ontoADiscOnly)) {
+                    return true;
+                }
+                tried = Math.min(tried, width);
+            }
+            return false;
         }
 
         private boolean start(Start start, int width, boolean ontoADiscOnly) {

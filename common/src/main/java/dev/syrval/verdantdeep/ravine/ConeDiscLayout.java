@@ -103,7 +103,7 @@ final class ConeDiscLayout implements DiscLayout {
         for (Drawn each : drawn) {
             Disc disc = each.disc();
             Optional<Disc.Support> root = each.toHang() ? rootOf(placed, disc) : Optional.empty();
-            Disc supportedDisc = disc.withSupport(each.surface() ? new Disc.Support.Attached()
+            Disc supportedDisc = disc.withSupport(each.surface() ? bracketOf(placed, disc)
                     : root.orElseGet(() -> new Disc.Support.Standing(Discs.bottomOf(placed, shape, disc))));
             supported.add(supportedDisc);
             if (each.surface() || exposedAtEntrance(supportedDisc)) {
@@ -113,6 +113,26 @@ final class ConeDiscLayout implements DiscLayout {
         this.discs = List.copyOf(supported);
         this.surfaceDiscs = Set.copyOf(surface);
         this.index = new DiscIndex(discs, settings.edgeFalloff());
+    }
+
+    /**
+     * A bowl shelf's bracket, which joins its underside to the slope behind it. A stem under its middle would stand on the
+     * slope only a few blocks down and leave the front, which is what shows, a flat slab. Rock is only put back where the
+     * bowl opened the ground, so what of the bracket is in the slope stays the slope's. It stops at the ground of any lower
+     * disc under the shelf, which would otherwise be buried.
+     */
+    private Disc.Support bracketOf(List<Disc> placed, Disc disc) {
+        double out = cell.distanceToCentre(disc.x(), disc.z());
+        double backX = out > 0 ? (disc.x() - cell.centreX()) / out : 1;
+        double backZ = out > 0 ? (disc.z() - cell.centreZ()) / out : 0;
+        double bottom = Double.NEGATIVE_INFINITY;
+        for (Disc lower : placed) {
+            double apart = Math.hypot(disc.x() - lower.x(), disc.z() - lower.z());
+            if (apart < disc.radius() + lower.radius() && lower.floor() + lower.bowl() < disc.floor() - shape.floorThickness()) {
+                bottom = Math.max(bottom, lower.floor() + lower.bowl());
+            }
+        }
+        return new Disc.Support.Bracket(backX, backZ, bottom);
     }
 
     /**

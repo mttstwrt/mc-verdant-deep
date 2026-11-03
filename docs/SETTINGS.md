@@ -94,7 +94,12 @@ in its middle. Its numbers:
   normal horizontal/vertical spacing; omitted gap share is 0.
   Radial surveys every 8 blocks find the exposed slope. Shelf sizes are bounded by half its radial width and fitted
   at fixed heights, with their centres 65% of a radius inward from the local wall. Their backs remain buried in that
-  wall; their fronts project into the bowl. Surface shelves carve no domes and have no separate support stems.
+  wall; their fronts project into the bowl. Surface shelves carve no domes and have no stem: a stem under the middle
+  stood on the slope a few blocks down and left the overhanging front a flat slab. Each has a bracket instead, rock
+  under the platform that is as deep as the shelf's radius at its back, where it meets the wall, about a third of that
+  under its middle, an eighth halfway to the front and nothing at the front, and thin at the sides, so its underside
+  curves up out of the slope. What of it lies in the slope stays the slope's, and it stops at the ground of any lower
+  disc under it. It is made of the palette's `stem` blocks, or the terrain's rock for a theme without them.
   With no dome to excavate outside the bowl, a buried back may extend into intact terrain beyond the exposed rim;
   its ground still stays `cone.ceiling_margin` (12) below local natural ground. Eight footprint samples check
   irregular sides, and all platforms remain within `outer_radius` and the total layout cap of 512. The natural rim
@@ -391,8 +396,10 @@ measured for blocked ground since the jungle's trees were thinned and the ground
 - `disc_birch` (2026-11-02, VRD-018) inherits from `minecraft:birch_forest` without its trees (`weight` 3, surface).
   Grass over dirt over stone, mounds up to 2. Its own trees: tall birches (`super_birch_bees_0002`) in groves, ordinary
   birches with a bee nest on one in twenty (`birch_bees_005`), both thinning towards the rim as the jungle's do; ferns,
-  grass and moss carpet; the parent's flowers, grass, mushrooms and pumpkins. Light as on the jungle disc: shroomlight deep
-  in the tall birches' crowns, glow berries under the canopy, lichen high and under the disc, berries over a long drop.
+  grass and moss carpet; the parent's flowers, grass, mushrooms and pumpkins. Lights of the jungle disc's kinds, but a third
+  as many on top and half as many underneath, since the surface has daylight (2026-11-02): shroomlight deep in the tall
+  birches' crowns (`every` 4), glow berries under the canopy (90), lichen high (72) and under the disc (48), berries over a
+  long drop (40), a rare glow bulb (2400). The other surface themes' lights are thinned the same way.
   Birch bushes and a few vines on the rim; the lush disc's ruins and troves.
 - `disc_spruce` (2026-11-02, VRD-031) inherits from `minecraft:old_growth_spruce_taiga` without its trees (`weight` 3,
   `by_size` 0.6 to 1.6, surface). The owner left open whether it is ordinary taiga or old growth: it is old growth, giant spruces
@@ -589,8 +596,17 @@ a number of them, not each disc a chance of one, so they stay something to come 
   to that disc's rim and over. `max_steps` 4 is the most falls one after another. Discs of one layer at one floor that run
   into one another, above all the shelves of one surface tier, are one ground to a channel: it goes on across them to where
   that ground ends, since a lip at its own disc's rim would only spill onto the neighbouring shelf.
-- `width` 1 is the water at an ordinary lip. `curtain`: with `chance` 0.4 a fall that starts on a disc of `min_radius` 40 or
-  more is `width` 3 to 5 wide instead, with a wider pool.
+- `width` 3 is the water at an ordinary lip, and its channel (1 to 5). `curtain`: with `chance` 0.4 a fall that starts on
+  a disc of `min_radius` 40 or more is `width` 4 to 6 wide instead, with a wider pool. Where a width does not fit (level
+  ground, a landing all of whose columns come down on one disc), the ordinary width is tried, then a single block.
+- After a chunk's decoration, gravel and sand (the block tag `#verdant_deep:kept_out_of_discs`) in a disc's platform,
+  stem, bracket or the ground over it are given the disc's own material back, or stone where its palette has none.
+  Decoration runs after the discs are painted, and an ore or a disk of a biome round a disc (vanilla's gravel ore, and
+  its gravel and sand disks under water) can reach into one; gravel there falls and lets a pond out. Red sand is left,
+  as the badlands disc means to have it. Gravel in the terrain round a disc is not touched.
+- After a chunk's growth, any leaves, logs or plants (the block tag `#verdant_deep:kept_out_of_falls`) that ended up in a
+  fall's water, its drop, channel or pool, are turned back into water: growth starts no nearer a drop than 7 blocks, but
+  a crown can spread further than that.
 - Channels, receiving pools and the validated falling columns are placed during generation. The falling columns use
   vanilla falling-water states; source lips still tick so flow continues normally after the chunk loads. Placement leaves
   solid blocks alone rather than cutting a new waterfall through them.
@@ -656,10 +672,15 @@ the server sends each player the gas of the holes within 512 blocks.
     reaching an edge past the walls and below the floor so that it is at its full thickness where they are; what of it
     lies in the rock is never seen. Light through `n` blocks of it is dimmed to `exp(-opacity × density × n)`; the
     `haze` medium's opacity is 1, so at the floor (0.022 as shipped) a fifth of the light is gone in 10 blocks.
+    `above_entrance` 16 ends it that many blocks over where the entrance bowl meets the cone instead of at the lip, with
+    `top_density` there: it thins out across the lowest surface shelves and leaves the higher ones in clear air. Left
+    out, or where the bowl starts nearer the lip than that, it goes up to the lip.
   - `falls.spray` rests on the water each fall lands in.
   - `falls.curtain` fills a cylinder up the whole drop, as wide as the fall and `margin` (1.5) blocks more each side.
   - `springs` rests on the pool where each spring's water comes down.
   - `cavern` (a list) spreads sources over the cavern floor, one for every `every` blocks, within 95% of its radius.
+  - `surface_rate` 0.4 (1 if left out): the share of their `rate` that sources on a surface disc give: its theme's gas, the
+    spray and curtain of a fall that leaves it, and a spring's over it. Gas reads stronger in daylight.
 
 A hole sends at most 4096 sources. Past that the themes' last ones are left out, and the log says so once for the hole.
 The hole's own come first. The `haze` dial turns the fog's two densities, and at 0 takes it away; no other dial turns gas.

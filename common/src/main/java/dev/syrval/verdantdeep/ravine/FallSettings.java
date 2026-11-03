@@ -74,7 +74,7 @@ public record FallSettings(
     static final Codec<FallSettings> CODEC = RecordCodecBuilder.create(i -> i.group(
             InclusiveRange.codec(Codec.intRange(0, MOST)).fieldOf("count").forGetter(FallSettings::count),
             DiscTheme.Ramp.BY_HEIGHT.optionalFieldOf("by_height", DiscTheme.Ramp.EVEN).forGetter(FallSettings::byHeight),
-            Codec.intRange(1, 2).optionalFieldOf("width", 1).forGetter(FallSettings::width),
+            Codec.intRange(1, 5).optionalFieldOf("width", 1).forGetter(FallSettings::width),
             Codec.intRange(2, 256).optionalFieldOf("min_drop", 10).forGetter(FallSettings::minDrop),
             Codec.intRange(1, 4).optionalFieldOf("max_per_disc", 1).forGetter(FallSettings::maxPerDisc),
             Pool.CODEC.fieldOf("pool").forGetter(FallSettings::pool),

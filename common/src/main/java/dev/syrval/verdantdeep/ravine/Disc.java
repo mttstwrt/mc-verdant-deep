@@ -7,7 +7,7 @@ import java.util.OptionalInt;
  * One disc, in world coordinates with a vertical axis, whatever geometry placed it: the middle of its platform's top is at
  * {@code floor}, {@code radius} is the platform's radius, {@code height} is the dome of clear air above it, {@code bowl} is
  * how far the platform rises from the middle to the rim (a shallow bowl, top and underside alike; 0 is flat), and
- * {@code support} is a wall attachment, a stem or a hanging root. The layout decides whether its dome carves a room.
+ * {@code support} is a stem, a hanging root or a bowl shelf's bracket. The layout decides whether its dome carves a room.
  * All volumes are signed distances in blocks, negative inside, infinity where the disc
  * has none.
  *
@@ -22,8 +22,13 @@ record Disc(double x, double z, double floor, double radius, double height, doub
      */
     sealed interface Support {
 
-        /** A shelf held by the bowl wall, without a stem or hanging root. */
-        record Attached() implements Support {}
+        /**
+         * Rock under a shelf in the entrance bowl, joining it to the slope behind it: deepest at the back, where the shelf
+         * meets the wall, as deep as the disc's radius there, and thinning to nothing at the front and the sides, so that its
+         * underside curves up out of the slope. {@code (backX, backZ)} is the unit step from the shelf's front to its back,
+         * and it goes no lower than {@code bottom}, the ground of a lower shelf.
+         */
+        record Bracket(double backX, double backZ, double bottom) implements Support {}
 
         /** A stem under the platform, down to {@code bottom}; negative infinity is the floor of the hole. */
         record Standing(double bottom) implements Support {
@@ -89,12 +94,16 @@ record Disc(double x, double z, double floor, double radius, double height, doub
     }
 
     /**
-     * Height of the open block right under the disc's rock {@code fromAxis} blocks from its axis, where what hangs from the
-     * disc starts, or empty where that column is the stem itself. A standing disc's stem flares out to the platform's whole
-     * width, so under all but the rim the lowest rock is the flare's, below the platform's underside.
+     * Height of the open block right under the disc's rock in the column at {@code (px, pz)}, where what hangs from the disc
+     * starts, or empty where that column is the stem itself. A standing disc's stem flares out to the platform's whole width,
+     * so under all but the rim the lowest rock is the flare's, below the platform's underside; a shelf's is its bracket's.
      */
-    OptionalInt hangBlockAt(DiscShape shape, double fromAxis) {
+    OptionalInt hangBlockAt(DiscShape shape, double px, double pz) {
+        double fromAxis = Math.hypot(px - x, pz - z);
         double underside = undersideAt(shape, fromAxis);
+        if (support instanceof Support.Bracket bracket) {
+            return OptionalInt.of((int) Math.floor(bracketBottomAt(shape, bracket, px, pz)));
+        }
         if (!(support instanceof Support.Standing standing)) {
             return OptionalInt.of((int) Math.floor(underside));
         }
@@ -143,7 +152,7 @@ record Disc(double x, double z, double floor, double radius, double height, doub
     /** The stem or root, ended where the disc's support says. */
     double supportDistance(DiscShape shape, double px, double py, double pz) {
         return switch (support) {
-            case Support.Attached attached -> Double.POSITIVE_INFINITY;
+            case Support.Bracket bracket -> bracketDistance(shape, bracket, px, py, pz);
             case Support.Standing standing -> py < standing.bottom() ? Double.POSITIVE_INFINITY : stemDistance(shape, px, py, pz);
             case Support.Hanging hanging -> rootDistance(shape, hanging, px, py, pz);
         };
@@ -181,6 +190,26 @@ record Disc(double x, double z, double floor, double radius, double height, doub
     /** The stem's radius {@code depth} blocks below the underside of the platform. */
     double stemRadiusAt(DiscShape shape, double depth) {
         return Math.max(shape.stemRadiusFor(radius), radius * shape.funnelScale() / (depth + shape.funnelScale()));
+    }
+
+    /** The bracket under a shelf: the platform's footprint, from its underside down to the bracket's bottom there. */
+    double bracketDistance(DiscShape shape, Support.Bracket bracket, double px, double py, double pz) {
+        double fromAxis = Math.hypot(px - x, pz - z);
+        double vertical = Math.max(bracketBottomAt(shape, bracket, px, pz) - py, py - undersideAt(shape, fromAxis));
+        return Math.max(fromAxis - radius, vertical);
+    }
+
+    /**
+     * Height of a bracket's underside in a column. Its depth goes by the distance from the back of the rim: the radius there,
+     * about a third of it under the middle, an eighth halfway to the front and nothing at the front, where that distance is the
+     * platform's whole width. At the sides, nearly as far from the back as the middle is, it is a sixth, so the bracket is
+     * rounded and not a slab.
+     */
+    double bracketBottomAt(DiscShape shape, Support.Bracket bracket, double px, double pz) {
+        double fromBack = Math.hypot(px - (x + radius * bracket.backX()), pz - (z + radius * bracket.backZ()));
+        double share = Math.max(0, 1 - fromBack / (2 * radius));
+        double depth = radius * share * Math.sqrt(share);
+        return Math.max(undersideAt(shape, Math.hypot(px - x, pz - z)) - depth, bracket.bottom());
     }
 
     /** The root above the platform, a vertical column from the platform's top to the root's top. */
