@@ -20,8 +20,11 @@ import net.minecraft.util.StringRepresentable;
  * @param fluid         what the ponds and streams hold
  * @param clear         blocks lava keeps from what the game would have it set alight: the ground of other discs about level
  *                      with it, and the hole's roots (see {@link DiscLava}); 0 for lava that lies wherever a pond does
+ * @param needsFall     whether every disc of the theme has to have a fall start from its water (see {@link DiscFalls}); a disc
+ *                      that cannot have one is given another theme
  */
-public record DiscWater(float ponds, float pondSize, float streamWidth, float streamSpacing, int depth, int bank, Fluid fluid, int clear) {
+public record DiscWater(
+        float ponds, float pondSize, float streamWidth, float streamSpacing, int depth, int bank, Fluid fluid, int clear, boolean needsFall) {
     /** The deepest water a disc may hold; a platform must be thicker than this. */
     public static final int MAX_DEPTH = 2;
 
@@ -51,14 +54,23 @@ public record DiscWater(float ponds, float pondSize, float streamWidth, float st
             Codec.intRange(1, MAX_DEPTH).optionalFieldOf("depth", MAX_DEPTH).forGetter(DiscWater::depth),
             Codec.intRange(2, 32).optionalFieldOf("bank", 3).forGetter(DiscWater::bank),
             Fluid.CODEC.optionalFieldOf("fluid", Fluid.WATER).forGetter(DiscWater::fluid),
-            Codec.intRange(0, DiscLava.MAX_CLEAR).optionalFieldOf("clear", 0).forGetter(DiscWater::clear)
+            Codec.intRange(0, DiscLava.MAX_CLEAR).optionalFieldOf("clear", 0).forGetter(DiscWater::clear),
+            Codec.BOOL.optionalFieldOf("needs_fall", false).forGetter(DiscWater::needsFall)
     ).apply(i, DiscWater::new)).validate(DiscWater::validate);
 
-    // Water sets nothing alight, and a fall is led from a pond wherever the pond lies.
+    // Water sets nothing alight, and a fall is led from a pond wherever the pond lies. Lava starts no falls.
     private static DataResult<DiscWater> validate(DiscWater water) {
-        return water.fluid == Fluid.WATER && water.clear > 0
-                ? DataResult.error(() -> "only lava keeps clear of what burns")
+        if (water.fluid == Fluid.WATER && water.clear > 0) {
+            return DataResult.error(() -> "only lava keeps clear of what burns");
+        }
+        return water.fluid == Fluid.LAVA && water.needsFall
+                ? DataResult.error(() -> "lava starts no falls, so a theme with lava cannot need one")
                 : DataResult.success(water);
+    }
+
+    /** Water that may go without a fall. */
+    public DiscWater(float ponds, float pondSize, float streamWidth, float streamSpacing, int depth, int bank, Fluid fluid, int clear) {
+        this(ponds, pondSize, streamWidth, streamSpacing, depth, bank, fluid, clear, false);
     }
 
     private static final int HASH_BASE = 400_000;

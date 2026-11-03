@@ -39,8 +39,9 @@ final class DiscGrowth {
                 DiscScatter.forEachPick(cell.hash(), GROWTH_HASH_BASE + i * MAX_GROWTHS + g, disc, each.on(), each.every(), wildness,
                         (x, z) -> each.weightAt(cell.hash(), index, disc, x, z), minX, minZ, (x, z, fromAxis) -> {
                             OptionalInt y = placeOn(each.on(), theme.get(), disc, ground, shape, lava, cell.hash(), index, x, z, fromAxis);
-                            // Nothing is started in a fall's water or by it, on a disc or over its lip, to stand in the water's way.
-                            if (y.isPresent() && !(each.on() != DiscTheme.Surface.UNDERSIDE && discs.falls().isNear(x, y.getAsInt(), z))) {
+                            // Nothing is started in a fall's water or by it, on a disc or over its lip, to stand in the water's way;
+                            // nor by a terrace's notch.
+                            if (y.isPresent() && !(each.on() != DiscTheme.Surface.UNDERSIDE && isByFallingWater(discs, ground, x, y.getAsInt(), z))) {
                                 sink.accept(x, y.getAsInt(), z, each.feature(), each.on());
                             }
                         });
@@ -48,9 +49,13 @@ final class DiscGrowth {
         }
     }
 
+    private static boolean isByFallingWater(CellDiscs discs, DiscGround ground, int x, int y, int z) {
+        return discs.falls().isNear(x, y, z) || ground.terraces().filter(plan -> plan.isNear(x, y, z)).isPresent();
+    }
+
     // The block a growth starts in: the open one over the ground or under the disc's lowest rock (the stem's flare under
-    // most of a standing disc), the lowest block of water, the open one over lava, or the open one beside the top block of
-    // the rim.
+    // most of a standing disc), the lowest block of water (a terrace's pool's or the theme's own), the open one over lava, or
+    // the open one beside the top block of the rim.
     static OptionalInt placeOn(
             DiscTheme.Surface on, DiscTheme theme, Disc disc, DiscGround ground, DiscShape shape, DiscLava lava, long hash, int index, int x, int z,
             double fromAxis) {
@@ -58,6 +63,10 @@ final class DiscGrowth {
             case TOP -> OptionalInt.of(ground.topBlockAt(x, z) + 1);
             case UNDERSIDE -> disc.hangBlockAt(shape, fromAxis);
             case WATER -> {
+                Optional<DiscTerraces.Water> pool = ground.terraces().flatMap(plan -> plan.waterAt(x, z));
+                if (pool.isPresent()) {
+                    yield OptionalInt.of(pool.get().level() - pool.get().depth() + 1);
+                }
                 int depth = depthOf(DiscWater.Fluid.WATER, theme, disc, hash, index, x, z);
                 yield depth > 0 ? OptionalInt.of(disc.topBlockAt(fromAxis) - depth + 1) : OptionalInt.empty();
             }

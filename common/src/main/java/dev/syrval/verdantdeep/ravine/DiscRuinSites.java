@@ -80,7 +80,14 @@ final class DiscRuinSites {
     static Stood onDiscs(
             RavineSettings settings, RavineBounds bounds, RavineCell cell, DiscLayout layout, List<Optional<DiscTheme>> themes,
             List<DiscTraits> traits, RuinPieces pieces, RootLayout roots) {
-        var hole = new Hole(settings, bounds, cell, layout, roots);
+        return onDiscs(settings, bounds, cell, layout, themes, traits, pieces, roots, layout.discs().stream().map(disc -> List.<DiscGround.Flat>of()).toList());
+    }
+
+    /** Every ruin and every trove in a cell, none of them on the rounds of each disc's ground that are {@code kept} for something else. */
+    static Stood onDiscs(
+            RavineSettings settings, RavineBounds bounds, RavineCell cell, DiscLayout layout, List<Optional<DiscTheme>> themes,
+            List<DiscTraits> traits, RuinPieces pieces, RootLayout roots, List<List<DiscGround.Flat>> kept) {
+        var hole = new Hole(settings, bounds, cell, layout, roots, kept);
         // Discs of one layer run into one another, so a ruin keeps clear of those on every disc and not only of its own.
         var standing = new ArrayList<Standing>();
         List<Placed> ruins = hole.stand(DiscSites.RUINS, themes, traits, pieces, standing);
@@ -156,7 +163,7 @@ final class DiscRuinSites {
         }
     }
 
-    private record Hole(RavineSettings settings, RavineBounds bounds, RavineCell cell, DiscLayout layout, RootLayout roots) {
+    private record Hole(RavineSettings settings, RavineBounds bounds, RavineCell cell, DiscLayout layout, RootLayout roots, List<List<DiscGround.Flat>> kept) {
 
         /** One of the two lists on every disc whose theme has it, in the order of the discs; each piece stood is added to {@code standing}. */
         List<Placed> stand(DiscSites which, List<Optional<DiscTheme>> themes, List<DiscTraits> traits, RuinPieces pieces, List<Standing> standing) {
@@ -263,7 +270,8 @@ final class DiscRuinSites {
                 return OptionalInt.empty();
             }
             int top = topOver(lowest, piece);
-            if (standing.stream().anyMatch(other -> other.isNear(host.index(), round, lowest - piece.sink(), top))) {
+            if (standing.stream().anyMatch(other -> other.isNear(host.index(), round, lowest - piece.sink(), top))
+                    || kept.get(host.index()).stream().anyMatch(flat -> round.distanceTo(flat.x(), flat.z()) < round.radius() + flat.radius())) {
                 return OptionalInt.empty();
             }
             if (isWet(host, round) || isCrossed(disc, round, lowest, top)

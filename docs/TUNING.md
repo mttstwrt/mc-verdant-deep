@@ -258,6 +258,23 @@ rest, every number is a first guess and none of it has been looked at in game. T
 - To find one: the dial `themes.verdant_deep:disc_lava` at 6, which is the weight 12 that made about two fifths of the
   discs low in a hole lava discs. Lava wherever a pond lies (`clear` 0 and `bank` 3) is the file's.
 
+## Birch, spruce, badlands, cherry and lake discs
+
+Added 2026-11-02 (VRD-018, 031, 032, 033, 030); their entries are the last five of `disc_themes`, and `docs/SETTINGS.md`
+describes each. None has been looked at in game yet, so every number below is a first guess.
+
+| Lever | Where | Shipped | What it does |
+|---|---|---|---|
+| How often each comes up | the dials `themes.verdant_deep:disc_birch` and so on, or each entry's `weight` | birch 3, spruce 3, badlands 2, cherry 3, lake 2 | these five are the surface themes (`only.where`), drawn against each other; the older five (4, 4, 3, 2 and 2) are the underground ones |
+| Which come up round which surface | the biome tags `verdant_deep:near/<theme>` (`only.near`) | by climate: cold to spruce, dry to badlands, temperate to birch, cherry and lake, wet to lake | a surface disc draws among the themes whose tag holds the natural biome on its side of the mouth; none matching, among all five |
+| What lines the cherry pools | `ground.terraces.rim` | mossy cobblestone 5, cobblestone 4, moss block 1 | round each pool and notch down to its bed, and the faces of the terrace steps; leave it out for the theme's grass and dirt |
+| How many pools a cherry disc steps through | `ground.terraces.pools` | 3 to 5 | fewer where the disc has no room; fewer pools fit more discs |
+| How big each pool is | `ground.terraces.radius` | 3 to 5 | larger pools want larger discs; a terrace is the pool and its `bank` (2) |
+| How far each pool falls into the next | `ground.terraces.step` | 1 to 2 | 2 makes a block of falling water you see; 3 or 4 stands the top terraces higher, which a low dome may not fit |
+| How much of a lake is water | `water.ponds`, `water.pond_size` on the lake | 0.75, 48 | as on any theme; `needs_fall` true makes a lake that cannot have its fall another theme |
+| How many lakes keep their fall onto a disc | `falls` at the top of the file | as for every fall | a lake's fall is looked for first and does not count against `count`; it lands on a disc where one fits, on the floor if not |
+| Hoodoos on badlands | `ground.outcrops` on the badlands | 9 high, cover 0.05 | as any outcrop; `block` is a `noise_provider` of seven terracottas |
+
 ## Light: how much of a disc is dark
 
 Added on 2026-10-11 (SCOPE.md, "Less light on the discs, and lights only inside leaves"). The owner: shroomlights,

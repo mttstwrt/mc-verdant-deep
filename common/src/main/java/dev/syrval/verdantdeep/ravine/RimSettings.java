@@ -3,10 +3,6 @@ package dev.syrval.verdantdeep.ravine;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import java.util.List;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.biome.Biome;
 
 /**
  * How a cone's top follows the ground. Without this every hole has the level's fixed {@code top} and is a bore from there up.
@@ -52,7 +48,6 @@ public record RimSettings(int minAboveSea, float dip, float lowShare, float topR
      * @param bottomVariation     maximum seeded lift of the lower join, allowing a short drop to the upper platforms
      * @param weathering          strength in blocks of broad erosion and smaller gullies, fading in from the lower join
      * @param discBands           maximum extra arcs of terrain-following platforms out across the entrance
-     * @param surfaceThemes       biome keys allowed for discs exposed to the entrance; empty leaves themes unrestricted
      * @param surfaceSizeBias     how strongly surface-disc sizes favor the largest radius, from 0 to 1
      * @param discSpacing         spacing around bowl shelf groups; 0 follows the cone's ordinary disc spacing
      * @param surfaceBowlDepth    maximum rise of a bowl shelf's rim above its middle, keeping feeder streams shallow
@@ -61,30 +56,25 @@ public record RimSettings(int minAboveSea, float dip, float lowShare, float topR
      */
     public record Collar(float width, float height, float profile, float roughness, float roughnessWavelength, float depth,
                          float bottomVariation, float weathering, int discBands,
-                         List<ResourceKey<Biome>> surfaceThemes, float surfaceSizeBias, float discSpacing, float surfaceBowlDepth,
-                         float discLayerSpacing, float discGapShare) {
+                         float surfaceSizeBias, float discSpacing, float surfaceBowlDepth, float discLayerSpacing, float discGapShare) {
 
-        public Collar {
-            surfaceThemes = List.copyOf(surfaceThemes);
+        public Collar(float width, float height, float profile, float roughness, float roughnessWavelength, float depth,
+                      float bottomVariation, float weathering, int discBands,
+                      float surfaceSizeBias, float discSpacing, float surfaceBowlDepth) {
+            this(width, height, profile, roughness, roughnessWavelength, depth, bottomVariation, weathering, discBands,
+                    surfaceSizeBias, discSpacing, surfaceBowlDepth, 0, 0);
         }
 
         public Collar(float width, float height, float profile, float roughness, float roughnessWavelength, float depth,
                       float bottomVariation, float weathering, int discBands,
-                      List<ResourceKey<Biome>> surfaceThemes, float surfaceSizeBias, float discSpacing, float surfaceBowlDepth) {
+                      float surfaceSizeBias) {
             this(width, height, profile, roughness, roughnessWavelength, depth, bottomVariation, weathering, discBands,
-                    surfaceThemes, surfaceSizeBias, discSpacing, surfaceBowlDepth, 0, 0);
-        }
-
-        public Collar(float width, float height, float profile, float roughness, float roughnessWavelength, float depth,
-                      float bottomVariation, float weathering, int discBands,
-                      List<ResourceKey<Biome>> surfaceThemes, float surfaceSizeBias) {
-            this(width, height, profile, roughness, roughnessWavelength, depth, bottomVariation, weathering, discBands,
-                    surfaceThemes, surfaceSizeBias, 0, 16);
+                    surfaceSizeBias, 0, 16);
         }
 
         public Collar(float width, float height, float profile, float roughness, float roughnessWavelength, float depth,
                       float bottomVariation, float weathering, int discBands) {
-            this(width, height, profile, roughness, roughnessWavelength, depth, bottomVariation, weathering, discBands, List.of(), 0);
+            this(width, height, profile, roughness, roughnessWavelength, depth, bottomVariation, weathering, discBands, 0);
         }
 
         public Collar(float width, float height, float profile, float roughness, float roughnessWavelength, float depth) {
@@ -106,7 +96,6 @@ public record RimSettings(int minAboveSea, float dip, float lowShare, float topR
                 Codec.floatRange(0, 64).optionalFieldOf("bottom_variation", 0F).forGetter(Collar::bottomVariation),
                 Codec.floatRange(0, 16).optionalFieldOf("weathering", 0F).forGetter(Collar::weathering),
                 Codec.intRange(0, 6).optionalFieldOf("disc_bands", 0).forGetter(Collar::discBands),
-                ResourceKey.codec(Registries.BIOME).listOf().optionalFieldOf("surface_themes", List.of()).forGetter(Collar::surfaceThemes),
                 Codec.floatRange(0, 1).optionalFieldOf("surface_size_bias", 0F).forGetter(Collar::surfaceSizeBias),
                 Codec.floatRange(0, 512).optionalFieldOf("disc_spacing", 0F).forGetter(Collar::discSpacing),
                 Codec.floatRange(0, 16).optionalFieldOf("surface_bowl_depth", 16F).forGetter(Collar::surfaceBowlDepth),

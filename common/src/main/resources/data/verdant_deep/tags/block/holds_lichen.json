@@ -9,6 +9,9 @@
     "minecraft:mossy_stone_bricks",
     "minecraft:mangrove_roots",
     "minecraft:jungle_wood",
-    "minecraft:mangrove_wood"
+    "minecraft:mangrove_wood",
+    "#minecraft:terracotta",
+    "minecraft:birch_wood",
+    "minecraft:spruce_wood"
   ]
 }

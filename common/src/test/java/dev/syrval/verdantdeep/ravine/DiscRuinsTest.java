@@ -113,7 +113,7 @@ class DiscRuinsTest {
         RavineCell cell = RavineCells.at(SEED, settings, 0, cz).orElseThrow();
         List<Disc> discs = cellDiscs.layout().discs();
         List<DiscTraits> traits = DiscTraits.of(settings, cell, discs);
-        DiscRuinSites.Stood stood = DiscRuinSites.onDiscs(settings, LEVEL, cell, cellDiscs.layout(), cellDiscs.themes(), traits, pieces, cellDiscs.roots());
+        DiscRuinSites.Stood stood = DiscRuinSites.onDiscs(settings, LEVEL, cell, cellDiscs.layout(), cellDiscs.themes(), traits, pieces, cellDiscs.roots(), cellDiscs.kept());
         List<DiscRuinSites.Placed> placed = which == DiscSites.RUINS ? stood.ruins() : stood.troves();
         assertEquals(cellDiscs.sites(which), placed.stream().map(DiscRuinSites.Placed::site).toList(), "the cell's " + which.getSerializedName() + " are these");
         var found = new ArrayList<Standing>();
@@ -326,7 +326,7 @@ class DiscRuinsTest {
     void troveKindsRampWithDepthInEveryThemeThatHasThem() throws Exception {
         List<DiscRuins> withTroves = DiscThemeTest.shipped().discThemes().stream().flatMap(theme -> theme.troves().stream())
                 .filter(troves -> troves.kinds().stream().anyMatch(kind -> kind.pool().location().getPath().matches("disc_troves/(crystal_|lava_)?hoard"))).toList();
-        assertEquals(5, withTroves.size(), "lush, jungle, mangrove, crystal and lava");
+        assertEquals(10, withTroves.size(), "lush, jungle, mangrove, crystal, lava, birch, spruce, badlands, cherry and lake");
         for (DiscRuins troves : withTroves) {
             for (double height : new double[] {0, 1}) {
                 double total = troves.kinds().stream().mapToDouble(kind -> kind.weight() * kind.byHeight().at(height)).sum();
@@ -347,7 +347,7 @@ class DiscRuinsTest {
     @Test
     void troveLootMixesShiftWithDepthInTheDirectionIntended() throws Exception {
         var themes = DiscThemeTest.shipped().discThemes();
-        assertEquals(5, themes.stream().filter(theme -> theme.troves().isPresent()).count());
+        assertEquals(10, themes.stream().filter(theme -> theme.troves().isPresent()).count());
         for (DiscTheme theme : themes) {
             if (theme.troves().isEmpty()) {
                 continue;

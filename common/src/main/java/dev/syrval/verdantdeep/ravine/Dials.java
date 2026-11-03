@@ -235,9 +235,13 @@ public record Dials(
         });
     }
 
+    // Terraces are where a theme's pools are, not rough ground, so they stay whatever the dial says.
     private void turnGround(JsonObject theme) {
         if (roughGround == 0) {
-            theme.remove("ground");
+            at(theme, "ground").ifPresent(ground -> {
+                ground.remove("mounds");
+                ground.remove("outcrops");
+            });
             return;
         }
         at(theme, "ground", "mounds").ifPresent(mounds -> times(mounds, "cover", roughGround, DiscRelief.Mounds.LEAST_COVER, 1));

@@ -76,10 +76,8 @@ class DiscThemeTest {
     /** The mod's own hole with one theme on every disc, which grows what is given and nothing else. */
     static RavineSettings growing(DiscTheme.Wildness wildness, DiscTheme.Growth... growth) throws Exception {
         RavineSettings base = shipped();
-        // This fixture replaces the biome themes with one synthetic growth-only theme, so its surface pool is unrestricted.
         var json = RavineSettings.MAP_CODEC.codec().encodeStart(JsonOps.INSTANCE, base).getOrThrow().getAsJsonObject();
         var collar = json.getAsJsonObject("cone").getAsJsonObject("rim").getAsJsonObject("collar");
-        collar.remove("surface_themes");
         // Growth density is measured on one platform, without contributions from overlapping surface terraces.
         collar.addProperty("disc_bands", 0);
         base = RavineSettings.MAP_CODEC.codec().parse(JsonOps.INSTANCE, json).getOrThrow();
@@ -213,9 +211,11 @@ class DiscThemeTest {
             for (int i = 0; i < all.size(); i++) {
                 Disc d = all.get(i);
                 if (cellDiscs.layout().isSurface(d)) {
-                    assertTrue(settings.cone().orElseThrow().rim().orElseThrow().collar().surfaceThemes()
-                            .contains(cellDiscs.themes().get(i).orElseThrow().biome().orElseThrow()),
-                            "exposed upper platforms use the surface allow list");
+                    assertEquals(Optional.of(DiscTheme.Where.SURFACE), cellDiscs.themes().get(i).orElseThrow().only().where(),
+                            "exposed upper platforms take surface themes");
+                } else {
+                    assertEquals(Optional.of(DiscTheme.Where.UNDERGROUND), cellDiscs.themes().get(i).orElseThrow().only().where(),
+                            "the discs under them take underground themes");
                 }
                 int x = (int) Math.floor(d.x());
                 int y = (int) d.floor() + 2;

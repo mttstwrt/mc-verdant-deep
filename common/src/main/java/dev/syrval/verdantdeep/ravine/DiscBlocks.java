@@ -67,10 +67,16 @@ final class DiscBlocks {
         }
     }
 
-    /** The columns of the chunk whose lowest corner is {@code (minX, minZ)} where a fall's still water lies (see {@link DiscFalls}). */
+    /**
+     * The columns of the chunk whose lowest corner is {@code (minX, minZ)} where a fall's still water lies (see {@link DiscFalls}),
+     * or a terrace's pool (see {@link DiscTerraces}), and the water falling from either.
+     */
     static void forEachFallWater(CellDiscs cellDiscs, int minX, int minZ, DiscFallSink sink) {
         cellDiscs.falls().forEachColumn(minX, minZ, column -> sink.accept(column.x(), column.level(), column.z(), column.depth(), column.cut(), column.lip()));
         cellDiscs.falls().forEachFlow(minX, minZ, flow -> sink.flow(flow.x(), flow.z(), flow.top(), flow.bottom()));
+        for (Optional<DiscTerraces.Plan> terraces : cellDiscs.terraces()) {
+            terraces.ifPresent(plan -> plan.forEachWater(minX, minZ, sink));
+        }
     }
 
     /**
@@ -84,7 +90,7 @@ final class DiscBlocks {
         for (int i = 0; i < discs.size(); i++) {
             Optional<DiscTheme> theme = cellDiscs.themes().get(i);
             DiscGround ground = cellDiscs.grounds().get(i);
-            if (theme.isEmpty() || ground.relief().equals(DiscRelief.FLAT)) {
+            if (theme.isEmpty() || ground.isFlat()) {
                 continue;
             }
             Disc disc = discs.get(i);
@@ -101,9 +107,12 @@ final class DiscBlocks {
                     }
                     int rock = disc.topBlockAt(Math.hypot(x - disc.x(), z - disc.z()));
                     Optional<BlockStateProvider> outcrop = ground.isOutcropAt(x, z) ? ground.relief().outcrops().map(DiscRelief.Outcrops::block) : Optional.empty();
+                    Optional<DiscGround.Rim> rim = ground.rimAt(x, z);
                     for (int y = Math.max(rock + 1, minY); y <= Math.min(rock + rise, maxY - 1); y++) {
                         double belowTop = rock + rise - y + 0.5;
-                        Optional<BlockStateProvider> block = outcrop.or(() -> palette.blockAt(new DiscPoint.Platform(belowTop, Double.MAX_VALUE)));
+                        int at = y;
+                        Optional<BlockStateProvider> block = outcrop.or(() -> rim.flatMap(r -> r.at(at)))
+                                .or(() -> palette.blockAt(new DiscPoint.Platform(belowTop, Double.MAX_VALUE)));
                         if (block.isPresent()) {
                             sink.accept(x, y, z, block.get());
                         }
@@ -138,9 +147,12 @@ final class DiscBlocks {
                 for (int z = fromZ; z <= toZ; z++) {
                     // Under a mound the platform's own top is that much deeper in the ground, and takes the layer of that depth.
                     int rise = ground.riseAt(x, z);
+                    Optional<DiscGround.Rim> rim = ground.rimAt(x, z);
                     for (int y = bottom; y <= top; y++) {
                         if (disc.pointAt(shape(), x, y, z).orElse(null) instanceof DiscPoint.Platform(double belowTop, double aboveUnderside)) {
-                            Optional<BlockStateProvider> block = palette.blockAt(new DiscPoint.Platform(belowTop + rise, aboveUnderside));
+                            int at = y;
+                            Optional<BlockStateProvider> block = rim.flatMap(r -> r.at(at))
+                                    .or(() -> palette.blockAt(new DiscPoint.Platform(belowTop + rise, aboveUnderside)));
                             if (block.isPresent()) {
                                 sink.accept(x, y, z, block.get());
                             }

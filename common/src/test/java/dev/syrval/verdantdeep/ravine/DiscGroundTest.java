@@ -40,7 +40,6 @@ class DiscGroundTest {
         // This fixture gives every disc its one test theme, including the largest surface shelf.
         var json = RavineSettings.MAP_CODEC.codec().encodeStart(JsonOps.INSTANCE, base).getOrThrow().getAsJsonObject();
         var collar = json.getAsJsonObject("cone").getAsJsonObject("rim").getAsJsonObject("collar");
-        collar.remove("surface_themes");
         // Ground relief is measured on one disc, without overlapping amphitheatre neighbors covering its footprint.
         collar.addProperty("disc_bands", 0);
         base = RavineSettings.MAP_CODEC.codec().parse(JsonOps.INSTANCE, json).getOrThrow();

@@ -25,7 +25,7 @@ explored, new ground meets old at a seam.
 | `springs` | both ends of `falls.springs.count` |
 | `ruins`, `troves` | each theme's `ruins` or `troves`: `chance` first, up to 1, and what the dial asks beyond that comes off `every`, so more discs have them before a disc has more. 0 takes the block out |
 | `hoards`, `nests` | the `weight` of each kind in a theme's `troves` whose `groups` has `"hoard"` or `"nest"` (both, if it has both), up to 1000. A kind turned to 0 is taken out; a kind in neither group is left as it is |
-| `rough_ground` | each theme's `ground`: the `cover` of its mounds and of its outcrops, not their height. 0 takes `ground` out |
+| `rough_ground` | each theme's `ground`: the `cover` of its mounds and of its outcrops, not their height. 0 takes the mounds and outcrops out; terraces stay |
 | `growth.<name>` | the `every` of each growth, on a disc or under the roots, whose feature is in the tag `#verdant_deep:dial/<name>` (`tags/worldgen/configured_feature/dial/`). The mod has `lights`, `giants` and `rim`; a feature in two of them, as the glowing bulbs are, is turned by both. 0 takes those growths out of their lists |
 | `themes.<biome id>` | that theme's `weight` |
 
@@ -100,9 +100,8 @@ in its middle. Its numbers:
   irregular sides, and all platforms remain within `outer_radius` and the total layout cap of 512. The natural rim
   should partly hide the entrance biome; full canopy concealment remains a visual check. Omitting `disc_bands`,
   `bottom_variation` or `weathering` disables that addition for existing datapacks.
-- `rim.collar.surface_themes` explicitly allows `verdant_deep:disc_jungle` and `verdant_deep:disc_mangrove` on
-  surface discs, including ordinary upper discs exposed by the bowl. Selection keeps the allowed themes' weights and
-  limits; there is no fallback to a disallowed biome. Omitted or empty leaves older datapacks unrestricted.
+- Which themes a surface disc may have (any disc exposed by the bowl, ordinary upper discs included) is each theme's own
+  `only.where` (see the themes below): birch, spruce, badlands, cherry and lake at the surface, the rest under it.
   `surface_size_bias` 0.8 favors larger discs within the normal radius range (20–64), with local placement bounds
   still limiting them. Bowl discs no longer have the previous 28-block radius cap or require a buried dome roof;
   their backs must still attach to retained bowl terrain. `surface_bowl_depth` 0 makes their tops flat, so a feeder
@@ -162,6 +161,16 @@ in its middle. Its numbers:
   (`bottom` to `top`), `by_distance` (`centre` to `edge`) and `by_size` (`small` to `large`).
 - `only`: optional hard limits on the same three traits, each from 0 to 1, as `min` and `max`. A disc outside them never gets
   the theme: `"only": {"distance": {"min": 0.55}, "size": {"max": 0.4}}` keeps a theme to small discs far from the centre.
+  `where` is `surface` (the discs open to the sky at a cone's entrance, see `rim.collar`) or `underground` (all the
+  others); left out, either. `near` is a biome tag: the theme is kept to discs whose side of the hole has one of its
+  biomes round the mouth, read from the level's own biome source (before the hole's discs paint theirs) on the ring where
+  the mouth's edge is measured, straight out from the axis past the disc, at the ground's height there. A disc for which
+  no theme with weight may be given by `near` draws as if no theme had it, so that it is never left without one. The
+  shipped surface themes name `verdant_deep:near/<theme>` (`data/verdant_deep/tags/worldgen/biome/near/`), by climate:
+  spruce by taiga, snowy and cold peaks and the conventional cold biomes; badlands by badlands, savanna, desert and the
+  conventional dry ones; birch by forests, meadow, plains and the temperate ones; cherry by cherry grove, meadow, flower
+  forest, plains and the temperate ones; lake by rivers, taiga, forests, jungle, swamp, meadow, plains and the temperate
+  and wet ones. A pack adds a biome to a tag to give its theme there.
 - `palette`: what the disc is made of. Blocks for the platform's `top` and `underside` (layers counted in from the surface), its
   `body`, and the `stem` (`surface` layers and `core`). Each block is a vanilla block-state provider, so it can be one block, a
   weighted mix or noise patches. A part left out stays the terrain's own rock. The shipped jungle and mangrove
@@ -177,6 +186,11 @@ in its middle. Its numbers:
   starts none, none lands on it, and no spring comes out of the wall behind it. `clear` (0 to 16, default 0, lava only)
   leaves the lava out within that many blocks of what the game would have it set alight: the ground of any other disc
   whose top is within 6 blocks of the lava's height, unless that disc holds lava too, and any root. See the lava disc below.
+  `needs_fall` (default false, water only) makes every disc of the theme start a fall from its water: one is looked for on
+  it before the hole's other falls and besides their `count`, landing on a disc if it can and on the floor if not. A disc
+  where no fall can be made is given the theme it would have drawn among those that need none, with the same draw, and
+  its ruins, troves and the hole's falls are found again. Without the `falls` block, or with the `falls` dial at 0, no
+  disc keeps such a theme.
 - `growth`: configured features of the theme's own, each placed on average once per `every` blocks of where it grows: `on` is
   `top` (dry ground, the default), `water` (the bed of a pond or stream, where a mangrove starts), `lava` (the open block
   over a pond or stream of lava; see the lava disc below for why not its bed) or `underside` (under the
@@ -208,7 +222,7 @@ in its middle. Its numbers:
     `weight` times the `by_height` ramp at the disc's height (`by_height` left out is flat; `bottom` is the hole's lowest
     disc, `top` its highest), and each site (a trove, or a ruin) rolls its one table from those weights once, fixed by the
     world seed. `depth` and `distance` do nothing with a mix. Every entry needs a weight, and the weights must add up to
-    more than 0 at the bottom and at the top. The troves of the five themes use a mix: vanilla mineshaft loot rises with
+    more than 0 at the bottom and at the top. The troves of all ten themes use a mix: vanilla mineshaft loot rises with
     height and end city loot falls, with the theme's own tables flat beside them.
   - `kinds`: template pools.
     - `pool`: a template pool; one of its elements is stood on the disc, turned any of four ways about its middle. Only an
@@ -374,6 +388,40 @@ measured for blocked ground since the jungle's trees were thinned and the ground
       could set alight from 2337 to 52. What it does not cover: what hangs from a
       disc higher up, and what vanilla builds in the hole (a mineshaft's props). SCOPE.md, "A lava disc", has the counts.
     - To have lava wherever a pond lies and take the fires with it, set `clear` to 0.
+- `disc_birch` (2026-11-02, VRD-018) inherits from `minecraft:birch_forest` without its trees (`weight` 3, surface).
+  Grass over dirt over stone, mounds up to 2. Its own trees: tall birches (`super_birch_bees_0002`) in groves, ordinary
+  birches with a bee nest on one in twenty (`birch_bees_005`), both thinning towards the rim as the jungle's do; ferns,
+  grass and moss carpet; the parent's flowers, grass, mushrooms and pumpkins. Light as on the jungle disc: shroomlight deep
+  in the tall birches' crowns, glow berries under the canopy, lichen high and under the disc, berries over a long drop.
+  Birch bushes and a few vines on the rim; the lush disc's ruins and troves.
+- `disc_spruce` (2026-11-02, VRD-031) inherits from `minecraft:old_growth_spruce_taiga` without its trees (`weight` 3,
+  `by_size` 0.6 to 1.6, surface). The owner left open whether it is ordinary taiga or old growth: it is old growth, giant spruces
+  (`mega_spruce`) at the hearts of groves about 36 across, spruces round them and a few pines, on podzol, coarse dirt,
+  grass and moss over dirt, with mossy cobblestone boulders up to 3 high. No snow is laid on it; its biome's temperature
+  is vanilla's (0.25), so weather may still snow on one high at a mountain's surface (VRD-027). Ferns, sweet berries and
+  mushrooms from the parent. Lights and ruins as on the birch disc; spruce bushes on the rim.
+- `disc_badlands` (2026-11-02, VRD-032) inherits all of `minecraft:badlands`' growth: dead bushes, sparse grass, cacti
+  where red sand lies. `weight` 2, surface, no water, no rain. Its top is red sand in patches with coarse dirt and terracotta, over
+  bands of orange and white terracotta, an underside of red terracotta and a terracotta body, so the rim of a platform
+  shows four bands. A few oaks (wooded badlands). Mounds up to 3, and hoodoos of terracotta up to 9 high whose colours
+  follow one noise, in patches rather than level bands (no vanilla block-state provider bands by height alone). Red sand
+  only ever lies on the platform's own layers, so it has rock under it. Lichen is its only light. Troves with desert
+  pyramid loot in place of the jungle temple's, and no ruins: the ruin pieces are mossy jungle masonry.
+- `disc_cherry` (2026-11-02, VRD-033) inherits from `minecraft:cherry_grove` without its trees (`weight` 3, `by_size` 0.5
+  to 1.6, surface). Grass over dirt, a body of stone with some cobblestone and mossy cobblestone that shows in the terrace walls.
+  `terraces`: 3 to 5 pools of radius 3 to 5 stepping down by 1 or 2, 2 deep, with banks of 2 (see the ground below),
+  rimmed with mossy cobblestone, cobblestone and a little moss;
+  lily pads and a few sea pickles in the pools, mist over them. Cherry trees, one in twenty with bees, thinning towards
+  the rim; pink petals and grass from the parent; shroomlight in the crowns and berries under them. Cherry bushes on the
+  rim, the lush disc's ruins and troves (never on a terrace). Measured offline (seeds 11 and 7, 40
+  holes), 159 of 244 cherry discs had terraces, 3.4 pools on average; the rest were too small (radius under 20) or had no
+  open air for them under their domes. The planned garden discs (VRD-028) stay a separate theme.
+- `disc_lake` (2026-11-02, VRD-030) inherits from `minecraft:river` without its trees (`weight` 2, any size, surface). Water over three quarters of the top in wide ponds 2 deep, banks of 3, `needs_fall`: every lake
+  disc starts a fall over its rim, onto a lower disc where one fits, or is given another theme. Grass, dirt, clay and moss
+  at the shore over dirt and clay, a clay bed and a stone body. Oaks and birches thinning towards the rim, ferns and grass,
+  the river's sugar cane and seagrass, lily pads, sea pickles in the middles of the ponds, mist; oak bushes and vines on the
+  rim; salmon and squid with the river's spawns. Mangrove-style troves, no ruins. Offline, 139 of 255 lake draws kept the
+  theme, all with a fall, 108 of those onto a disc.
 
 Jungle and mangrove grow their own trees because the parent's may not grow on a disc at all: an overworld overhaul such as
 William Wythers' Overhauled Overworld replaces those biomes with trees that only grow at certain heights above sea level and on
@@ -419,6 +467,21 @@ stay as they are; the ground is more blocks on top, written into open air. Both 
   `height` says. The theme's palette has to give its top at least `height` blocks of material.
 - `outcrops`: lumps of `block` (any block-state provider), a block high at their edges and `height` in their middles, with
   sides as steep as they come. They are in a player's way, so `cover` wants to stay small.
+- `terraces` (see `DiscTerraces`): a chain of pools that step down across the disc, each in a level terrace of the theme's
+  own ground, the water of each running out through a notch in its terrace's front and falling into the next. `pools`
+  (2 to 8, a range) is how many at most, `radius` (2 to 12, a range) each pool's, `step` (1 to 4, a range, default 1 to 2)
+  how far each pool's water lies under the one before, `depth` (1 or 2, default 2) the middle of a pool, and `bank` (1 to
+  8, default 2) the level ground round a pool out to its terrace's edge. `rim`, a block-state provider, takes the place
+  of the theme's ground round the water, from each pool's and notch's bed up, and in the face of each terrace where it
+  stands over the ground beside it; without one those are the theme's ground. The chain crosses the middle of the disc towards
+  the hole's middle, or turned aside, or moved back or forward, whichever first fits: every terrace inside the level ring at
+  the rim, every column of water with ground as high beside it or water it runs into, a block under it, and open air over
+  it and down each fall, clear of the wall, a dome's roof and other discs' ground. Fewer pools are tried before none; a
+  disc with no room for two keeps the theme's plain ground. The lowest terrace stands as high as the platform under it
+  rises, each one behind a `step` higher or as high as the platform under it, and round the stack a slope falls away a
+  block for each block and a half. Ruins, troves and falls keep 3 blocks off the terraces, and nothing grows within 4
+  blocks of a notch's fall. A theme with terraces needs a palette `body` (a terrace may stand higher than any layers
+  reach) and has no `water` of its own; `on: water` growth and gas use its pools.
 
 The ground stays on the platform within 4 blocks of the rim (whose side shows the palette's layers), under each ruin and 2
 blocks round it, and at water and right beside it, and rises from each of those by at most a block for each block further.
@@ -427,7 +490,8 @@ lush disc and a tenth of a mangrove disc. What grows on a disc and what it inher
 The mod's own: jungle mounds up to 3 over 0.3 of the top with a few mossy stone outcrops up to 4; lush mounds up to 2 over
 0.25 with stone and moss outcrops up to 5; mangrove hummocks 1 high between its ponds; lava mounds up to 2 over 0.3 with
 columns of basalt up to 5; crystal spires of calcite and
-amethyst up to 6.
+amethyst up to 6; birch mounds up to 2; spruce mounds up to 2 with mossy cobblestone boulders up to 3; badlands mounds up
+to 3 with terracotta hoodoos up to 9; cherry terraces of 3 to 5 pools and mounds up to 2 off them; lake hummocks 1 high.
 
 Three settings keep a disc's plants from ending in a wall at its edge and from looking like the disc next to it:
 
@@ -489,8 +553,8 @@ the hole.
   forward). `radius` 2.
 - `winding` 0.6: how far a root strays to either side of the straight way to where it is going. 0 is straight.
 - `wood`: what a root is made of where no disc says otherwise: `bark` for its outermost block and, if given, `core` for the
-  rest. The mod's is jungle wood and mangrove wood in patches. A theme's `root_wood` (same form) is the wood of roots near
-  its discs: jungle wood on the jungle theme, mangrove wood on the mangrove one, none on lush, crystal and lava. A root within
+  rest. The mod's is mangrove wood. A theme's `root_wood` (same form) is the wood of roots near its discs; none of the
+  mod's themes has one, so every root is mangrove wood. A root within
   `wood_reach` 48 blocks of such a disc takes its wood; between two different woods it is one or the other in patches along
   the root, the share shifting over `wood_blend` 16 blocks.
 - `growth`: what hangs under the roots, a list as on a theme: a `feature`, `every` (blocks of a root's underside for each
@@ -514,14 +578,17 @@ a number of them, not each disc a chance of one, so they stay something to come 
   outlets face inward. Receiver-targeted directions aim inside the lower shelf's bank far enough to hold a pool,
   before trying the ordinary inward fan. Both feeders and onward cascades try a lower receiving shelf before a direct fall to
   the floor. A theme whose `water` is lava starts none. `by_height` (0.5 at the lowest disc, 2 at the highest) makes a start
-  likelier high up; `max_per_disc` 1.
+  likelier high up; `max_per_disc` 1. A disc whose theme's water has `needs_fall` (the lake) is given its fall first,
+  besides `count`.
 - What one needs: `min_drop` 10 blocks of open air under its lip, and to come down either on the hole's floor or on the top
   of a lower disc where there is room for a pool. Never on a ruin, a root, a stem or the wall, nor on a disc that holds lava. Most places have only the
   floor under them, so half of a hole's falls, rounded up, are first looked for among those that land on a disc.
 - `pool`: `radius` 3, `depth` 2 in its middle and 1 at its edge, inside the disc's bank, on a disc whose palette gives its
   top 3 blocks of material (all of the mod's do; a disc with no theme has no pool, so nothing falls on it).
 - `chain` 0.85: the chance that a fall which landed in a pool goes on, by a channel from the pool towards the hole's middle
-  to that disc's rim and over. `max_steps` 4 is the most falls one after another.
+  to that disc's rim and over. `max_steps` 4 is the most falls one after another. Discs of one layer at one floor that run
+  into one another, above all the shelves of one surface tier, are one ground to a channel: it goes on across them to where
+  that ground ends, since a lip at its own disc's rim would only spill onto the neighbouring shelf.
 - `width` 1 is the water at an ordinary lip. `curtain`: with `chance` 0.4 a fall that starts on a disc of `min_radius` 40 or
   more is `width` 3 to 5 wide instead, with a wider pool.
 - Channels, receiving pools and the validated falling columns are placed during generation. The falling columns use
@@ -542,7 +609,7 @@ a number of them, not each disc a chance of one, so they stay something to come 
   puts springs of its own in the hole's wall as well, wherever the rock suits.
 
 How the water is made. Everything but the falling is still water written with the disc: a channel through the bank at the
-level of the water it leaves, to the platform's last column. Ground higher than that level is cut down to it (by 2 blocks
+level of the water it leaves, to the last column of the platform (or of the layer's platforms that run into it). Ground higher than that level is cut down to it (by 2 blocks
 at most under a channel, which leaves a block of the platform as its bed); every column has ground or water of its own
 level on each side. The last column has one side open, and is marked for the game to tick when the chunk comes alive, as
 the game marks water that the terrain left somewhere to run. From there the game runs it: out over the edge and down, at
@@ -550,8 +617,9 @@ about 4 blocks a second, so a fall of 60 blocks takes a quarter of a minute to r
 near, and is there from then on. Landing in a pool it stops. Landing on the floor it spreads as water does, up to 7
 blocks and further downhill, and takes grass, flowers and vines with it.
 
-Nothing of a theme's own growth is started within 2 blocks of a fall's water or 7 of where one comes down, and the ground
-stays level there. To have none, take the block out or turn the `falls` dial to 0; for more, the dial or the block's
+Nothing of a theme's own growth is started within 2 blocks of a fall's water, or within 7 of a drop anywhere from its lip down
+to where it lands (leaves take the place of water, so a bush hung from a rim beside a drop would cut it), and the ground
+stays level by the water. To have none, take the block out or turn the `falls` dial to 0; for more, the dial or the block's
 `count`.
 
 ### Gas

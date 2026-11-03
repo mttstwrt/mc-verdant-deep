@@ -1,6 +1,9 @@
 {
   "replace": false,
   "values": [
-    "verdant_deep:disc_mangrove"
+    "verdant_deep:disc_mangrove",
+    "verdant_deep:disc_birch",
+    "verdant_deep:disc_cherry",
+    "verdant_deep:disc_lake"
   ]
 }

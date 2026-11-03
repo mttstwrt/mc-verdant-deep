@@ -1,0 +1,20 @@
+{
+  "values": [
+    "#minecraft:is_river",
+    "#minecraft:is_taiga",
+    "#minecraft:is_forest",
+    "minecraft:meadow",
+    "minecraft:plains",
+    "minecraft:sunflower_plains",
+    "minecraft:swamp",
+    "#minecraft:is_jungle",
+    {
+      "id": "#c:is_temperate/overworld",
+      "required": false
+    },
+    {
+      "id": "#c:is_wet/overworld",
+      "required": false
+    }
+  ]
+}

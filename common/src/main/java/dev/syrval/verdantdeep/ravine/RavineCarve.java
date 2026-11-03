@@ -110,6 +110,11 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
         sites.followGround(ground, seaLevel);
     }
 
+    /** Themes kept to natural biomes read them from {@code biomes}; until then none is ruled out. Called once, before any chunk is built. */
+    public void readBiomes(NaturalBiomes biomes) {
+        sites.readBiomes(biomes);
+    }
+
     /**
      * The ruins on this ravine's discs are made of {@code pieces}; until then there are none. Called once, before any chunk is
      * built.

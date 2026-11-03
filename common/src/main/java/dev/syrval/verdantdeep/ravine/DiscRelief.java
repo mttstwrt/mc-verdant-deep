@@ -6,14 +6,16 @@ import java.util.Optional;
 import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider;
 
 /**
- * The lie of a disc's ground, as part of its {@link DiscTheme}: mounds a player walks over and outcrops that stand in the way.
- * Both are ground put on top of the platform, which keeps its own shape under them (see {@link DiscGround}).
+ * The lie of a disc's ground, as part of its {@link DiscTheme}: mounds a player walks over, outcrops that stand in the way and
+ * terraces that hold pools. All are ground put on top of the platform, which keeps its own shape under them (see
+ * {@link DiscGround}).
  *
  * @param mounds   gentle rises of the theme's own ground
  * @param outcrops steep lumps of a material of their own
+ * @param terraces level steps of the theme's own ground, each with a pool that runs into the next
  */
-public record DiscRelief(Optional<Mounds> mounds, Optional<Outcrops> outcrops) {
-    static final DiscRelief FLAT = new DiscRelief(Optional.empty(), Optional.empty());
+public record DiscRelief(Optional<Mounds> mounds, Optional<Outcrops> outcrops, Optional<DiscTerraces> terraces) {
+    static final DiscRelief FLAT = new DiscRelief(Optional.empty(), Optional.empty(), Optional.empty());
     private static final int HASH_BASE = 1_300_000;
 
     /**
@@ -68,8 +70,14 @@ public record DiscRelief(Optional<Mounds> mounds, Optional<Outcrops> outcrops) {
 
     static final Codec<DiscRelief> CODEC = RecordCodecBuilder.create(i -> i.group(
             Mounds.CODEC.optionalFieldOf("mounds").forGetter(DiscRelief::mounds),
-            Outcrops.CODEC.optionalFieldOf("outcrops").forGetter(DiscRelief::outcrops)
+            Outcrops.CODEC.optionalFieldOf("outcrops").forGetter(DiscRelief::outcrops),
+            DiscTerraces.CODEC.optionalFieldOf("terraces").forGetter(DiscRelief::terraces)
     ).apply(i, DiscRelief::new));
+
+    /** Ground without terraces. */
+    public DiscRelief(Optional<Mounds> mounds, Optional<Outcrops> outcrops) {
+        this(mounds, outcrops, Optional.empty());
+    }
 
     /** The most blocks the ground may stand over the platform anywhere. */
     int highest() {

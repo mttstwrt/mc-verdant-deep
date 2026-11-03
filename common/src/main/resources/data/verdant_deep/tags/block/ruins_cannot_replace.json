@@ -2,6 +2,8 @@
   "values": [
     "#minecraft:features_cannot_replace",
     "minecraft:jungle_wood",
-    "minecraft:mangrove_wood"
+    "minecraft:mangrove_wood",
+    "minecraft:birch_wood",
+    "minecraft:spruce_wood"
   ]
 }

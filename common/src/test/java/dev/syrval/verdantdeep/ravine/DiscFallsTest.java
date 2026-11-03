@@ -34,6 +34,12 @@ class DiscFallsTest {
                 new ConeDressing(base.roots(), falls));
     }
 
+    private static RavineSettings withOnlyThemes(RavineSettings base) {
+        List<DiscTheme> plain = base.discThemes().stream().filter(theme -> !theme.needsFall() && theme.ground().terraces().isEmpty()).toList();
+        return new RavineSettings(base.salt(), base.cellSize(), base.chance(), base.sizeBias(), base.floor(), base.top(), base.cavernRadius(),
+                base.cavernHeight(), base.edgeFalloff(), base.discs(), plain, base.environment(), base.wallNoise(), base.ravine(), base.cone(), base.dressing());
+    }
+
     private record Hole(RavineCell cell, CellDiscs discs) {}
 
     private static List<Hole> holes(RavineSettings settings) {
@@ -46,6 +52,19 @@ class DiscFallsTest {
     }
 
     private record At(int disc, int x, int z) {}
+
+    // The discs at one floor with a disc that cover a column: discs of one layer run into one another, and a fall's water
+    // sees their platforms as one ground.
+    private static List<Integer> layerAt(List<Disc> discs, Disc of, int x, int z) {
+        var covering = new ArrayList<Integer>();
+        for (int i = 0; i < discs.size(); i++) {
+            Disc d = discs.get(i);
+            if (d.floor() == of.floor() && Math.hypot(x - d.x(), z - d.z()) < d.radius()) {
+                covering.add(i);
+            }
+        }
+        return covering;
+    }
 
     @Test
     void aHoleStartsNoMoreFallsThanItIsAllowedAndEachGoesOnOnlySoFar() throws Exception {
@@ -63,7 +82,8 @@ class DiscFallsTest {
                 assertTrue(fall.drop() >= MANY.minDrop(), "a drop of " + fall.drop());
                 assertTrue(fall.width() == 1 || fall.width() >= 3 && fall.width() <= 5, "a lip " + fall.width() + " wide");
                 if (fall.step() == 0) {
-                    first++;
+                    // A disc whose theme needs a fall has one besides the hole's count.
+                    first += hole.discs().themes().get(fall.from()).filter(DiscTheme::needsFall).isPresent() ? 0 : 1;
                     assertTrue(startedOn.merge(fall.from(), 1, Integer::sum) <= MANY.maxPerDisc(), "two falls start on disc " + fall.from());
                     ontoDiscs += fall.onto().isPresent() ? 1 : 0;
                 } else {
@@ -72,6 +92,11 @@ class DiscFallsTest {
                 curtains += fall.width() > 1 ? 1 : 0;
             }
             assertTrue(first <= 4, first + " falls started in one hole");
+            for (int i = 0; i < hole.discs().themes().size(); i++) {
+                int disc = i;
+                assertTrue(hole.discs().themes().get(i).filter(DiscTheme::needsFall).isEmpty()
+                        || falls.stream().anyMatch(fall -> fall.from() == disc && fall.step() == 0), "a disc that needs a fall has none: " + i);
+            }
             started += first;
             assertEquals(falls, CellDiscs.of(settings, DiscThemeTest.LEVEL, hole.cell()).falls().falls(), "the same falls every time");
         }
@@ -105,20 +130,26 @@ class DiscFallsTest {
                 assertTrue(d.platformDistance(shape, column.x(), column.level() - column.depth(), column.z()) < 0, "no bed under " + column);
                 assertTrue(d.platformDistance(shape, column.x(), column.level(), column.z()) < 0, "water outside its platform: " + column);
                 boolean open = false;
-                Optional<DiscWater> own = hole.discs().themes().get(column.disc()).flatMap(DiscTheme::water);
                 for (int[] step : BESIDE) {
                     int x = column.x() + step[0];
                     int z = column.z() + step[1];
-                    double fromAxis = Math.hypot(x - d.x(), z - d.z());
-                    DiscFalls.Column beside = water.get(new At(column.disc(), x, z));
-                    if (beside != null) {
-                        assertEquals(column.level(), beside.level(), "two levels of a fall's water side by side at " + column);
-                    } else if (fromAxis >= d.radius()) {
+                    List<Integer> layer = layerAt(discs, d, x, z);
+                    Optional<DiscFalls.Column> beside = layer.stream().map(i -> water.get(new At(i, x, z))).filter(found -> found != null).findFirst();
+                    if (beside.isPresent()) {
+                        assertEquals(column.level(), beside.get().level(), "two levels of a fall's water side by side at " + column);
+                    } else if (layer.isEmpty()) {
                         open = true;
                     } else {
-                        assertTrue(d.topBlockAt(fromAxis) >= column.level(), "lower ground beside " + column);
-                        boolean wet = own.isPresent() && own.get().depthAt(d, hole.cell().hash(), column.disc(), x, z) > 0;
-                        assertTrue(!wet || d.topBlockAt(fromAxis) == column.level(), "the disc's own water at another level beside " + column);
+                        // The ground there is the highest top of the discs that cover it; the water of one lower down is under it.
+                        int top = layer.stream().mapToInt(i -> discs.get(i).topBlockAt(Math.hypot(x - discs.get(i).x(), z - discs.get(i).z()))).max().orElseThrow();
+                        assertTrue(top >= column.level(), "lower ground beside " + column);
+                        for (int i : layer) {
+                            Disc under = discs.get(i);
+                            Optional<DiscWater> own = hole.discs().themes().get(i).flatMap(DiscTheme::water);
+                            boolean wet = own.isPresent() && own.get().depthAt(under, hole.cell().hash(), i, x, z) > 0
+                                    && under.topBlockAt(Math.hypot(x - under.x(), z - under.z())) == top;
+                            assertTrue(!wet || top == column.level(), "a disc's own water at another level beside " + column);
+                        }
                     }
                 }
                 assertEquals(open, column.lip(), "a lip is the water with an open side: " + column);
@@ -142,7 +173,7 @@ class DiscFallsTest {
             for (DiscFalls.Fall fall : falls.falls()) {
                 Disc from = discs.get(fall.from());
                 assertTrue(Math.hypot(fall.x() - from.x(), fall.z() - from.z()) >= from.radius(), "a fall down through its own disc");
-                assertTrue(falls.columns().stream().anyMatch(column -> column.disc() == fall.from() && column.lip() && column.level() == fall.level()
+                assertTrue(falls.columns().stream().anyMatch(column -> discs.get(column.disc()).floor() == from.floor() && column.lip() && column.level() == fall.level()
                         && Math.hypot(column.x() - fall.x(), column.z() - fall.z()) < 1.5), "no lip beside the column " + fall + " falls down");
                 int landsOn = fall.level() - fall.drop() - 1;
                 var flowing = new ArrayList<DiscFalls.Flow>();
@@ -191,7 +222,9 @@ class DiscFallsTest {
 
     @Test
     void aFallsWaterTakesThePlaceOfTheDiscsOwnAndNothingIsGrownInIt() throws Exception {
-        RavineSettings settings = with(Optional.of(MANY));
+        // The same themes have to be given with falls and without, and only falls' water written: so none that needs a fall
+        // or has terraces of its own.
+        RavineSettings settings = withOnlyThemes(with(Optional.of(MANY)));
         for (Hole hole : holes(settings).subList(0, 2)) {
             DiscFalls falls = hole.discs().falls();
             Set<At> written = new HashSet<>();
@@ -201,7 +234,7 @@ class DiscFallsTest {
             }
             int[] grownBesideAFall = {0};
             // The same hole with no falls, to see what the discs' own water would have been.
-            CellDiscs dry = CellDiscs.of(with(Optional.empty()), DiscThemeTest.LEVEL, hole.cell());
+            CellDiscs dry = CellDiscs.of(withOnlyThemes(with(Optional.empty())), DiscThemeTest.LEVEL, hole.cell());
             Map<At, Integer> own = new HashMap<>();
             Map<At, Integer> ownWithoutFalls = new HashMap<>();
             for (long chunk : chunks) {
@@ -228,16 +261,22 @@ class DiscFallsTest {
             assertEquals(falls.columns().size(), written.size(), "every column of a fall's water, once");
             // Discs of one layer run into one another, so a column may be two discs' at once: counted by height and column,
             // each of a disc's own columns that a fall has taken is one fewer than there would have been.
+            // A fall's column is every disc's of its layer that covers it, and none of them keeps its own water there.
             List<Disc> discs = hole.discs().layout().discs();
-            int replaced = 0;
+            Map<At, Integer> taken = new HashMap<>();
             for (DiscFalls.Column column : falls.columns()) {
-                Disc d = discs.get(column.disc());
-                Optional<DiscWater> water = hole.discs().themes().get(column.disc()).flatMap(DiscTheme::water);
-                if (water.isPresent() && water.get().depthAt(d, hole.cell().hash(), column.disc(), column.x(), column.z()) > 0) {
-                    var at = new At(d.topBlockAt(Math.hypot(column.x() - d.x(), column.z() - d.z())), column.x(), column.z());
-                    assertEquals(ownWithoutFalls.get(at) - 1, own.getOrDefault(at, 0), "a disc's own water where a fall's lies, at " + column);
-                    replaced++;
+                for (int i : layerAt(discs, discs.get(column.disc()), column.x(), column.z())) {
+                    Disc d = discs.get(i);
+                    Optional<DiscWater> water = hole.discs().themes().get(i).flatMap(DiscTheme::water);
+                    if (water.isPresent() && water.get().depthAt(d, hole.cell().hash(), i, column.x(), column.z()) > 0) {
+                        taken.merge(new At(d.topBlockAt(Math.hypot(column.x() - d.x(), column.z() - d.z())), column.x(), column.z()), 1, Integer::sum);
+                    }
                 }
+            }
+            int replaced = 0;
+            for (Map.Entry<At, Integer> at : taken.entrySet()) {
+                assertEquals(ownWithoutFalls.get(at.getKey()) - at.getValue(), own.getOrDefault(at.getKey(), 0), "a disc's own water where a fall's lies, at " + at.getKey());
+                replaced += at.getValue();
             }
             assertTrue(replaced > 0, "no fall starts in a disc's own water");
             assertEquals(ownWithoutFalls.values().stream().mapToInt(Integer::intValue).sum() - replaced, own.values().stream().mapToInt(Integer::intValue).sum(),

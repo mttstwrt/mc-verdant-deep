@@ -9,6 +9,7 @@ import dev.syrval.verdantdeep.ravine.RavineBounds;
 import dev.syrval.verdantdeep.ravine.RavineCarve;
 import dev.syrval.verdantdeep.ravine.RavineCell;
 import dev.syrval.verdantdeep.ravine.LandCheck;
+import dev.syrval.verdantdeep.ravine.NaturalBiomes;
 import dev.syrval.verdantdeep.ravine.RavineCells;
 import dev.syrval.verdantdeep.ravine.DiscShape;
 import dev.syrval.verdantdeep.ravine.DiscTheme;
@@ -179,6 +180,7 @@ public final class RavineDensityHook {
             RavineEnvironment environment = carve.settings().environment();
             carve.restrictToLand(landCheck(generator.getBiomeSource(), state.sampler(), settings.seaLevel(), environment.forbiddenBiomes()));
             carve.followGround(ground, settings.seaLevel());
+            carve.readBiomes(naturalBiomes(generator.getBiomeSource(), state.sampler()));
             regions.add(new RavineFootprint.Region(carve, cavernBiome(biomes, environment), discBiomes(biomes, carve.settings().discThemes())));
             warnOfMissingGrowth(features, carve.settings().discThemes());
             carve.furnishRuins(DiscRuinPieces.of(
@@ -193,6 +195,11 @@ public final class RavineDensityHook {
     // Sampled at sea level: over ocean that is an ocean biome, over land it is a surface or cave biome.
     private static LandCheck landCheck(BiomeSource source, Climate.Sampler sampler, int sampleY, TagKey<Biome> forbidden) {
         return (x, z) -> !source.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(sampleY), QuartPos.fromBlock(z), sampler).is(forbidden);
+    }
+
+    // The biome source itself, which the footprint's biomes are painted over only as chunks fill theirs.
+    private static NaturalBiomes naturalBiomes(BiomeSource source, Climate.Sampler sampler) {
+        return (x, y, z) -> Optional.of(source.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(y), QuartPos.fromBlock(z), sampler));
     }
 
     private static Optional<Holder<Biome>> cavernBiome(Registry<Biome> biomes, RavineEnvironment environment) {

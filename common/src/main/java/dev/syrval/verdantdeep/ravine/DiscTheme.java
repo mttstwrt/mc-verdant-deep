@@ -5,9 +5,11 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.List;
 import java.util.Optional;
+import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.levelgen.GenerationStep;
@@ -86,17 +88,57 @@ public record DiscTheme(
     /**
      * Where a theme may be given at all. A ramp only makes a theme more or less likely; a limit rules it out, so that a
      * theme can be kept to, say, the small discs far from the centre.
+     *
+     * @param where whether the theme is kept to the discs open to the sky at a hole's entrance, or to those under them
+     * @param near  the natural biomes the theme is kept to: those of the ground round the hole's mouth, on the side of it the
+     *              disc lies towards, as they were before the hole was made. Where none of a disc's themes may be given
+     *              there, this limit is left out for it (see {@link DiscThemes})
      */
-    public record Limits(Span height, Span distance, Span size) {
+    public record Limits(Span height, Span distance, Span size, Optional<Where> where, Optional<TagKey<Biome>> near) {
         static final Limits NONE = new Limits(Span.ALL, Span.ALL, Span.ALL);
         static final Codec<Limits> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Span.CODEC.optionalFieldOf("height", Span.ALL).forGetter(Limits::height),
                 Span.CODEC.optionalFieldOf("distance", Span.ALL).forGetter(Limits::distance),
-                Span.CODEC.optionalFieldOf("size", Span.ALL).forGetter(Limits::size)
+                Span.CODEC.optionalFieldOf("size", Span.ALL).forGetter(Limits::size),
+                Where.CODEC.optionalFieldOf("where").forGetter(Limits::where),
+                TagKey.hashedCodec(Registries.BIOME).optionalFieldOf("near").forGetter(Limits::near)
         ).apply(i, Limits::new));
+
+        /** Limits by traits alone. */
+        public Limits(Span height, Span distance, Span size) {
+            this(height, distance, size, Optional.empty(), Optional.empty());
+        }
 
         boolean allow(DiscTraits traits) {
             return height.holds(traits.height()) && distance.holds(traits.distance()) && size.holds(traits.size());
+        }
+
+        /** Whether a disc open to the sky at the entrance, or one under them, may have the theme. */
+        boolean allowWhere(boolean surface) {
+            return where.map(kept -> kept == (surface ? Where.SURFACE : Where.UNDERGROUND)).orElse(true);
+        }
+
+        /** Whether a disc whose surroundings have this natural biome may have the theme; any may where it is not known. */
+        boolean allowNear(Optional<Holder<Biome>> biome) {
+            return near.isEmpty() || biome.isEmpty() || biome.get().is(near.get());
+        }
+    }
+
+    /** The two kinds of disc a theme may be kept to: those open to the sky at a hole's entrance, and all the rest. */
+    public enum Where implements StringRepresentable {
+        SURFACE("surface"),
+        UNDERGROUND("underground");
+
+        static final Codec<Where> CODEC = StringRepresentable.fromEnum(Where::values);
+        private final String name;
+
+        Where(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public String getSerializedName() {
+            return name;
         }
     }
 
@@ -345,6 +387,14 @@ public record DiscTheme(
             return DataResult.error(() -> "a theme with mounds needs a palette that gives its platform's top "
                     + mounds.get().height() + " blocks of material: what the mounds are made of");
         }
+        // A terrace stands as high as its pools need, which is more than any number of layers can be sure to give.
+        if (theme.ground.terraces().isPresent() && theme.palette.body().isEmpty()) {
+            return DataResult.error(() -> "a theme with terraces needs a palette with a body: what the terraces are made of below its layers");
+        }
+        // The terraces lay out the ground and the water together; ponds of the theme's own would lie across them.
+        if (theme.ground.terraces().isPresent() && theme.water.isPresent()) {
+            return DataResult.error(() -> "a theme with terraces has its water in their pools, and cannot have water of its own as well");
+        }
         return DataResult.success(theme);
     }
 
@@ -359,6 +409,11 @@ public record DiscTheme(
             Limits only, DiscPalette palette, Optional<DiscWater> water, List<Growth> growth, Wildness wildness,
             DiscRelief ground, Optional<DiscRuins> ruins, Optional<DiscRuins> troves, Optional<RootWood> rootWood) {
         this(biome, inherits, weight, byHeight, byDistance, bySize, only, palette, water, growth, wildness, ground, ruins, troves, rootWood, List.of());
+    }
+
+    /** Whether every disc of the theme has to have a fall start from its water, or be given another theme. */
+    boolean needsFall() {
+        return water.filter(DiscWater::needsFall).isPresent();
     }
 
     /** Whether the theme's ponds and streams hold lava, which a fall's water is kept away from. */

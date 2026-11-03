@@ -143,6 +143,10 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
             double fromAxis) {
         return switch (gas.on()) {
             case WATER -> {
+                Optional<DiscTerraces.Water> pool = ground.terraces().flatMap(plan -> plan.waterAt(x, z));
+                if (pool.isPresent()) {
+                    yield OptionalDouble.of(gas.shape().standingOn(pool.get().level() + 1));
+                }
                 int depth = theme.water().filter(water -> water.fluid() == DiscWater.Fluid.WATER).map(water -> water.depthAt(disc, hash, index, x, z)).orElse(0);
                 yield depth > 0 ? OptionalDouble.of(gas.shape().standingOn(disc.topBlockAt(fromAxis) + 1)) : OptionalDouble.empty();
             }
