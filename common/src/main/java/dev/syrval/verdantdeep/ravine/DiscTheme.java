@@ -203,10 +203,14 @@ public record DiscTheme(
      * so it must be one that grows from there. In water it is placed in the lowest block of the water, as vanilla starts a tree
      * that stands in water on its bed. Nothing of vanilla's grows through lava, so over lava it is placed in the open block
      * above: a tree there puts its {@code dirt_provider} block in the lava's top block, as it does under any trunk, and so
-     * stands on the bed of lava that is one block deep. Without {@code patches} it is spread evenly, and without
-     * {@code rimFade} as thickly at the rim as in the middle.
+     * stands on the bed of lava that is one block deep. Without {@code patches} it is spread evenly, without
+     * {@code rimFade} as thickly at the rim as in the middle, and without {@code light} in sun and shade alike. With it, the
+     * growth is taken out of the other part rather than gathered into its own: a tree marked {@code sun} keeps its rate where
+     * the sun is and has none in shade.
      */
-    public record Growth(ResourceKey<ConfiguredFeature<?, ?>> feature, int every, Surface on, Optional<Patches> patches, Optional<RimFade> rimFade) {
+    public record Growth(
+            ResourceKey<ConfiguredFeature<?, ?>> feature, int every, Surface on, Optional<Patches> patches, Optional<RimFade> rimFade,
+            Optional<Light> light) {
         // Named because the owner's dials hold what they turn to the same limit (see Dials); so with a theme's weight.
         static final int MOST_EVERY = 100_000;
         static final Codec<Growth> CODEC = RecordCodecBuilder.<Growth>create(i -> i.group(
@@ -214,8 +218,14 @@ public record DiscTheme(
                 Codec.intRange(1, MOST_EVERY).fieldOf("every").forGetter(Growth::every),
                 Surface.CODEC.optionalFieldOf("on", Surface.TOP).forGetter(Growth::on),
                 Patches.CODEC.optionalFieldOf("patches").forGetter(Growth::patches),
-                RimFade.CODEC.optionalFieldOf("rim_fade").forGetter(Growth::rimFade)
+                RimFade.CODEC.optionalFieldOf("rim_fade").forGetter(Growth::rimFade),
+                Light.CODEC.optionalFieldOf("light").forGetter(Growth::light)
         ).apply(i, Growth::new)).validate(Growth::validate);
+
+        /** A growth for sun and shade alike. */
+        public Growth(ResourceKey<ConfiguredFeature<?, ?>> feature, int every, Surface on, Optional<Patches> patches, Optional<RimFade> rimFade) {
+            this(feature, every, on, patches, rimFade, Optional.empty());
+        }
 
         // The rim is one ring of columns, all of them at the rim.
         private static DataResult<Growth> validate(Growth growth) {
@@ -224,10 +234,34 @@ public record DiscTheme(
                     : DataResult.success(growth);
         }
 
-        /** How many times its average rate this grows in one column of {@code disc}, the {@code index}-th disc of a hole. */
-        double weightAt(long hash, int index, Disc disc, int x, int z) {
+        /** How many times its average rate this grows in one column of {@code disc}, the {@code index}-th disc of {@code layout}. */
+        double weightAt(long hash, int index, DiscLayout layout, Disc disc, int x, int z) {
             return patches.map(found -> found.weightAt(hash, index, x, z)).orElse(1.0)
-                    * rimFade.map(found -> found.weightAt(hash, index, disc, x, z)).orElse(1.0);
+                    * rimFade.map(found -> found.weightAt(hash, index, disc, x, z)).orElse(1.0)
+                    * light.map(found -> found.weightAt(layout.sunAt(disc, x, z))).orElse(1.0);
+        }
+    }
+
+    /** Whether a growth wants the sun that comes down the hole's mouth or the shade away from it (see {@link SunSettings}). */
+    public enum Light implements StringRepresentable {
+        SUN("sun"),
+        SHADE("shade");
+
+        static final Codec<Light> CODEC = StringRepresentable.fromEnum(Light::values);
+        private final String name;
+
+        Light(String name) {
+            this.name = name;
+        }
+
+        // Where the sun is half there, both kinds grow at half their rate.
+        double weightAt(double sun) {
+            return this == SUN ? sun : 1 - sun;
+        }
+
+        @Override
+        public String getSerializedName() {
+            return name;
         }
     }
 

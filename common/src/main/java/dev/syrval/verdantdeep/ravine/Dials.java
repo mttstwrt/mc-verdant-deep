@@ -40,17 +40,18 @@ import net.minecraft.util.InclusiveRange;
  * @param nests       the same for the group {@code nest}; a kind in both is turned by both
  * @param roughGround how much of a disc's top its mounds and outcrops cover
  * @param haze        how thick the fog through a hole's air is, by its densities
+ * @param sun         how far out from under the hole's mouth the sun reaches the discs, by the margin and the fade
  * @param growth      how much grows of each group of features, by the group's name. A group is a tag of configured features
  *                    under {@code verdant_deep:dial/}, and a feature in two groups is turned by both
  * @param themes      how often a disc gets each theme, by the id of the theme's biome
  */
 public record Dials(
         float holes, float roots, float falls, float springs, float ruins, float troves, float hoards, float nests, float roughGround, float haze,
-        Map<String, Float> growth, Map<String, Float> themes) {
+        float sun, Map<String, Float> growth, Map<String, Float> themes) {
 
     // The most of anything a dial may ask for, in times what the settings have.
     private static final float MOST = 10;
-    public static final Dials NEUTRAL = new Dials(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, Map.of(), Map.of());
+    public static final Dials NEUTRAL = new Dials(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, Map.of(), Map.of());
 
     public static final Codec<Dials> CODEC = RecordCodecBuilder.create(i -> i.group(
             dial("holes", 1).forGetter(Dials::holes),
@@ -63,6 +64,7 @@ public record Dials(
             dial("nests", MOST).forGetter(Dials::nests),
             dial("rough_ground", MOST).forGetter(Dials::roughGround),
             dial("haze", MOST).forGetter(Dials::haze),
+            dial("sun", MOST).forGetter(Dials::sun),
             named("growth").forGetter(Dials::growth),
             named("themes").forGetter(Dials::themes)
     ).apply(i, Dials::new));
@@ -92,7 +94,7 @@ public record Dials(
 
     /** These dials with one at 1 for every name given that they lack, which is how the file is filled in. */
     public Dials withNames(Set<String> growthNames, Set<String> themeNames) {
-        return new Dials(holes, roots, falls, springs, ruins, troves, hoards, nests, roughGround, haze, filled(growth, growthNames), filled(themes, themeNames));
+        return new Dials(holes, roots, falls, springs, ruins, troves, hoards, nests, roughGround, haze, sun, filled(growth, growthNames), filled(themes, themeNames));
     }
 
     private static Map<String, Float> filled(Map<String, Float> given, Set<String> names) {
@@ -114,6 +116,7 @@ public record Dials(
         all.put("nests", nests);
         all.put("rough_ground", roughGround);
         all.put("haze", haze);
+        all.put("sun", sun);
         growth.forEach((name, dial) -> all.put("growth." + name, dial));
         themes.forEach((name, dial) -> all.put("themes." + name, dial));
         all.values().removeIf(dial -> dial == 1);
@@ -147,6 +150,10 @@ public record Dials(
         at(settings, "falls").ifPresent(found -> count(found, falls, FallSettings.MOST));
         at(settings, "falls", "springs").ifPresent(found -> count(found, springs, FallSettings.MOST));
         turnHaze(settings);
+        at(settings, "sun").ifPresent(found -> {
+            times(found, "margin", sun, 0, SunSettings.MOST);
+            times(found, "fade", sun, 0, SunSettings.MOST);
+        });
         if (!settings.has("disc_themes")) {
             return;
         }

@@ -37,7 +37,7 @@ final class DiscGrowth {
                 DiscTheme.Growth each = growth.get(g);
                 int index = i;
                 DiscScatter.forEachPick(cell.hash(), GROWTH_HASH_BASE + i * MAX_GROWTHS + g, disc, each.on(), each.every(), wildness,
-                        (x, z) -> each.weightAt(cell.hash(), index, disc, x, z), minX, minZ, (x, z, fromAxis) -> {
+                        (x, z) -> each.weightAt(cell.hash(), index, discs.layout(), disc, x, z), minX, minZ, (x, z, fromAxis) -> {
                             OptionalInt y = placeOn(each.on(), theme.get(), disc, ground, shape, lava, cell.hash(), index, x, z, fromAxis);
                             // Nothing is started in a fall's water or by it, on a disc or over its lip, to stand in the water's way;
                             // nor by a terrace's notch.

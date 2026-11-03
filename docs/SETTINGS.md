@@ -26,6 +26,7 @@ explored, new ground meets old at a seam.
 | `ruins`, `troves` | each theme's `ruins` or `troves`: `chance` first, up to 1, and what the dial asks beyond that comes off `every`, so more discs have them before a disc has more. 0 takes the block out |
 | `hoards`, `nests` | the `weight` of each kind in a theme's `troves` whose `groups` has `"hoard"` or `"nest"` (both, if it has both), up to 1000. A kind turned to 0 is taken out; a kind in neither group is left as it is |
 | `rough_ground` | each theme's `ground`: the `cover` of its mounds and of its outcrops, not their height. 0 takes the mounds and outcrops out; terraces stay |
+| `sun` | `sun.margin` and `sun.fade`: how far out from under the hole's mouth sun-fed growth reaches. 0 keeps it to the columns under the mouth itself |
 | `growth.<name>` | the `every` of each growth, on a disc or under the roots, whose feature is in the tag `#verdant_deep:dial/<name>` (`tags/worldgen/configured_feature/dial/`). The mod has `lights`, `giants` and `rim`; a feature in two of them, as the glowing bulbs are, is turned by both. 0 takes those growths out of their lists |
 | `themes.<biome id>` | that theme's `weight` |
 
@@ -274,8 +275,8 @@ The mod's own themes:
 - `disc_jungle` inherits from `minecraft:jungle` (three times as likely in the middle of the cone as at its edge). Its top is
   a patchwork, in patches 10 to 30 blocks across: about half of it grass, with podzol, moss, coarse dirt and mud, and here
   and there a floor of mossy stone bricks edged with mossy cobblestone. Under it are three layers, which show at the rim as
-  bands. A few small ponds and streams, and its own growth: a giant jungle tree for about every 120 blocks of ground and an
-  ordinary one for every 45, with bushes, clumps of bamboo, ferns, moss carpet and azaleas between and under them, and
+  bands. A few small ponds and streams, and its own growth: where the sun reaches it (`light` below), a giant jungle tree
+  for about every 120 blocks of ground and an ordinary one for every 45, with bushes, clumps of bamboo, ferns, moss carpet and azaleas between and under them, and
   vines. Under the disc glow berries, tufts of leaves and vines. Ruins on three discs in five half way up a hole, on more below and fewer above (see Ruins below).
   - The patchwork is one `noise_provider` in the palette's first `top` layer. Its `states` are an order, not a mix: the noise
     is turned into a place in the list, low values to its start and high ones to its end, so blocks next to each other in
@@ -302,7 +303,8 @@ The mod's own themes:
       same place or at the place either side. `DiscThemeTest` reads the mod's own file for that.
     - A pond's bed is the second of the three in its middle, and the first at its edges and under a stream.
 - `disc_mangrove` inherits from `minecraft:mangrove_swamp` (favours the wide low discs). Mud over packed mud, about two fifths of
-  it shallow water. Its trees stand in groves about 40 blocks across with clearings between: giant mangroves at the hearts of
+  it shallow water. Where the sun reaches it (`light` below), its trees stand in groves about 40 blocks across with
+  clearings between: giant mangroves at the hearts of
   the groves, on mud and in water, raised 5 to 8 blocks on roots a player can walk under; tall mangroves round them; short ones
   only on the mud, out to the groves' edges. On the mud everywhere, clearings included: grass, ferns and moss carpet, big
   dripleaf and blue orchids; on the water lily pads. Under the disc, patches of hanging mangrove roots draped with vines, and
@@ -527,6 +529,25 @@ Three settings keep a disc's plants from ending in a wall at its edge and from l
   wanders alike, so its trees leave the same clearings. `reach` (0.05 to 1) is the most of the disc's radius the fade may
   take, whatever its width: the jungle's trees have 0.25, so on a disc 20 blocks in radius they are thinned over 5 blocks at most
   and on one of 64 over 16. Without it a small disc is thinned through to its middle. Not for a growth on the rim itself.
+- `light` in a `growth` entry, `sun` or `shade`, keeps it to the part of a disc that has the sun or to the part that has
+  not. The sun comes straight down through the hole's mouth: a column of an underground disc has it when it lies under the
+  mouth or within the hole's `sun.margin` (4) past its edge, and none `sun.fade` (8) blocks further out, thinning steadily
+  between (`ravine/SunSettings.java`). Discs above do not shade those below, since looking down the hole the shaft reads as
+  lit to the floor; surface shelves have the sun everywhere. A marked growth keeps its rate where it may grow and has none
+  elsewhere, so its `every` is still counted over the whole disc. Offline, over 40 holes, a sixth of the jungle discs'
+  ground and an eighth of the mangroves' has the sun, and three jungle discs in five have some. Without `sun` in the file
+  every column has the sun. What is marked:
+  - `sun`: the jungle's trees, bushes, bamboo and rim trees and all three of the mangrove's trees. The underground themes'
+    trees grow only on the side of a disc that faces the shaft.
+  - `shade` (VRD-051), all of vanilla's blocks, for the domes the trees have left: more giant mushrooms (red on the jungle,
+    brown on the mangrove), lichen under their caps (`cap_gills_lichen`, light 7) and, rarely, froglights in them
+    (`cap_gills_froglight_pearlescent` on the jungle, `_ochre` on the mangrove, light 15, every 2500: a lamp to steer by);
+    long cave vines with one berry at the tip, hung from a dome's ceiling only where the berry is 15 or more blocks over the
+    ground and so lights none of it (`tip_lit_ceiling`); red curtains of weeping vines from patches of nether wart block
+    in the ceiling (`weeping_curtain`, jungle); hanging roots from rooted dirt (`root_ceiling`, mangrove); beds of moss with
+    small and medium amethyst buds (light 1 and 2) and pink petals (`bud_garden`, jungle and lush); and spore blossoms on
+    the ceiling (`spore_blossom_ceiling`, all three). The gills and the tipped vines are in the `lights` dial.
+  - Everything else grows in sun and shade alike.
 - `wildness` on a theme, `min` to `max`: each disc draws one number between them and grows that many times as much of
   everything in the theme's `growth`. What a disc inherits is not changed, so a disc at the low end is a glade in grass,
   not bare. Jungle and mangrove have 0.5 to 1.4. `max` is what decides whether the thickest disc can still be walked

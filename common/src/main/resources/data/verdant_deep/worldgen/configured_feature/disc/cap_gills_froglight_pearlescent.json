@@ -1,0 +1,42 @@
+{
+  "type": "minecraft:random_patch",
+  "config": {
+    "tries": 10,
+    "xz_spread": 3,
+    "y_spread": 0,
+    "feature": {
+      "feature": {
+        "type": "minecraft:simple_block",
+        "config": {
+          "to_place": {
+            "type": "minecraft:simple_state_provider",
+            "state": {
+              "Name": "minecraft:pearlescent_froglight",
+              "Properties": {
+                "axis": "y"
+              }
+            }
+          }
+        }
+      },
+      "placement": [
+        {
+          "type": "minecraft:environment_scan",
+          "direction_of_search": "up",
+          "max_steps": 16,
+          "allowed_search_condition": {
+            "type": "minecraft:matching_blocks",
+            "blocks": "minecraft:air"
+          },
+          "target_condition": {
+            "type": "minecraft:matching_blocks",
+            "blocks": [
+              "minecraft:red_mushroom_block",
+              "minecraft:brown_mushroom_block"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

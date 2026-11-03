@@ -62,6 +62,8 @@ final class ConeDiscLayout implements DiscLayout {
     private final List<Disc> discs;
     private final Set<Disc> surfaceDiscs;
     private final DiscIndex index;
+    // The radius of the hole's mouth, where the cone meets the entrance's bowl: the sun comes down through this.
+    private final double mouth;
 
     // A disc as placed, and whether it was drawn to hang, which it does only if it then turns out to have a ceiling.
     private record Drawn(Disc disc, boolean toHang, boolean surface) {
@@ -113,6 +115,7 @@ final class ConeDiscLayout implements DiscLayout {
         this.discs = List.copyOf(supported);
         this.surfaceDiscs = Set.copyOf(surface);
         this.index = new DiscIndex(discs, settings.edgeFalloff());
+        this.mouth = ConeShape.radiusAt(settings, cone, bounds, ConeShape.entranceFloor(cone, bounds, cell));
     }
 
     /**
@@ -531,6 +534,14 @@ final class ConeDiscLayout implements DiscLayout {
     @Override
     public boolean isSurface(Disc disc) {
         return surfaceDiscs.contains(disc);
+    }
+
+    @Override
+    public double sunAt(Disc disc, double x, double z) {
+        if (isSurface(disc)) {
+            return 1;
+        }
+        return settings.dressing().sun().map(sun -> sun.shareAt(cell.distanceToCentre(x, z) - mouth)).orElse(1.0);
     }
 
     @Override

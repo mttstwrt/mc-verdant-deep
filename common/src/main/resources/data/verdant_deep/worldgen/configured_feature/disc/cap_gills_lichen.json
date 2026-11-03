@@ -1,0 +1,48 @@
+{
+  "type": "minecraft:random_patch",
+  "config": {
+    "tries": 12,
+    "xz_spread": 3,
+    "y_spread": 0,
+    "feature": {
+      "feature": {
+        "type": "minecraft:multiface_growth",
+        "config": {
+          "block": "minecraft:glow_lichen",
+          "can_be_placed_on": [
+            "minecraft:red_mushroom_block",
+            "minecraft:brown_mushroom_block"
+          ],
+          "can_place_on_ceiling": true,
+          "can_place_on_floor": false,
+          "can_place_on_wall": false,
+          "chance_of_spreading": 0.0,
+          "search_range": 1
+        }
+      },
+      "placement": [
+        {
+          "type": "minecraft:environment_scan",
+          "direction_of_search": "up",
+          "max_steps": 16,
+          "allowed_search_condition": {
+            "type": "minecraft:matching_blocks",
+            "blocks": "minecraft:air"
+          },
+          "target_condition": {
+            "type": "minecraft:matching_blocks",
+            "blocks": [
+              "minecraft:red_mushroom_block",
+              "minecraft:brown_mushroom_block"
+            ],
+            "offset": [
+              0,
+              1,
+              0
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -57,6 +57,16 @@
           "every": 300
         },
         {
+          "feature": "verdant_deep:disc/bud_garden",
+          "every": 400,
+          "light": "shade"
+        },
+        {
+          "feature": "verdant_deep:disc/spore_blossom_ceiling",
+          "every": 700,
+          "light": "shade"
+        },
+        {
           "feature": "verdant_deep:disc/moss_ceiling",
           "every": 55
         },
@@ -593,11 +603,59 @@
           }
         },
         {
+          "feature": "verdant_deep:disc/giant_mushroom_red",
+          "every": 450,
+          "light": "shade",
+          "patches": {
+            "size": 30,
+            "cover": 0.3
+          }
+        },
+        {
+          "feature": "verdant_deep:disc/cap_gills_lichen",
+          "every": 40,
+          "light": "shade",
+          "patches": {
+            "size": 30,
+            "cover": 0.3
+          }
+        },
+        {
+          "feature": "verdant_deep:disc/cap_gills_froglight_pearlescent",
+          "every": 2500,
+          "light": "shade",
+          "patches": {
+            "size": 30,
+            "cover": 0.3
+          }
+        },
+        {
+          "feature": "verdant_deep:disc/weeping_curtain",
+          "every": 700,
+          "light": "shade"
+        },
+        {
+          "feature": "verdant_deep:disc/tip_lit_ceiling",
+          "every": 600,
+          "light": "shade"
+        },
+        {
+          "feature": "verdant_deep:disc/bud_garden",
+          "every": 500,
+          "light": "shade"
+        },
+        {
+          "feature": "verdant_deep:disc/spore_blossom_ceiling",
+          "every": 900,
+          "light": "shade"
+        },
+        {
           "feature": "verdant_deep:disc/glow_bulb",
           "every": 450
         },
         {
           "feature": "verdant_deep:disc/jungle_tree_giant",
+          "light": "sun",
           "every": 120,
           "rim_fade": {
             "width": 10,
@@ -608,6 +666,7 @@
         },
         {
           "feature": "verdant_deep:disc/jungle_tree",
+          "light": "sun",
           "every": 45,
           "rim_fade": {
             "width": 10,
@@ -618,10 +677,12 @@
         },
         {
           "feature": "verdant_deep:disc/jungle_bush",
+          "light": "sun",
           "every": 50
         },
         {
           "feature": "verdant_deep:disc/bamboo_clump",
+          "light": "sun",
           "every": 200
         },
         {
@@ -687,6 +748,7 @@
         },
         {
           "feature": "verdant_deep:disc/rim_tree",
+          "light": "sun",
           "every": 18,
           "on": "rim",
           "patches": {
@@ -1086,11 +1148,54 @@
           }
         },
         {
+          "feature": "verdant_deep:disc/giant_mushroom_brown",
+          "every": 300,
+          "light": "shade",
+          "patches": {
+            "size": 24,
+            "cover": 0.3
+          }
+        },
+        {
+          "feature": "verdant_deep:disc/cap_gills_lichen",
+          "every": 40,
+          "light": "shade",
+          "patches": {
+            "size": 24,
+            "cover": 0.3
+          }
+        },
+        {
+          "feature": "verdant_deep:disc/cap_gills_froglight_ochre",
+          "every": 2500,
+          "light": "shade",
+          "patches": {
+            "size": 24,
+            "cover": 0.3
+          }
+        },
+        {
+          "feature": "verdant_deep:disc/root_ceiling",
+          "every": 500,
+          "light": "shade"
+        },
+        {
+          "feature": "verdant_deep:disc/tip_lit_ceiling",
+          "every": 700,
+          "light": "shade"
+        },
+        {
+          "feature": "verdant_deep:disc/spore_blossom_ceiling",
+          "every": 900,
+          "light": "shade"
+        },
+        {
           "feature": "verdant_deep:disc/glow_bulb_swamp",
           "every": 450
         },
         {
           "feature": "verdant_deep:disc/mangrove_giant",
+          "light": "sun",
           "every": 40,
           "patches": {
             "size": 40,
@@ -1099,6 +1204,7 @@
         },
         {
           "feature": "verdant_deep:disc/mangrove_giant",
+          "light": "sun",
           "every": 36,
           "on": "water",
           "patches": {
@@ -1108,6 +1214,7 @@
         },
         {
           "feature": "verdant_deep:disc/mangrove_tall",
+          "light": "sun",
           "every": 80,
           "patches": {
             "size": 40,
@@ -1116,6 +1223,7 @@
         },
         {
           "feature": "verdant_deep:disc/mangrove_tall",
+          "light": "sun",
           "every": 60,
           "on": "water",
           "patches": {
@@ -1125,6 +1233,7 @@
         },
         {
           "feature": "verdant_deep:disc/mangrove",
+          "light": "sun",
           "every": 60,
           "patches": {
             "size": 40,
@@ -3712,5 +3821,9 @@
       }
     ],
     "surface_rate": 0.4
+  },
+  "sun": {
+    "margin": 4,
+    "fade": 8
   }
 }

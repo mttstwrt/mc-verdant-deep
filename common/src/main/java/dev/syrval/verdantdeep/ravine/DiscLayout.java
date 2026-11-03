@@ -17,6 +17,14 @@ interface DiscLayout {
         return false;
     }
 
+    /**
+     * How much of the sun reaches a column of a disc, from 0 in shade to 1 (see {@link SunSettings}). A layout that knows of no
+     * sun has it everywhere: growth marked {@code sun} grows as if unmarked, and growth marked {@code shade} not at all.
+     */
+    default double sunAt(Disc disc, double x, double z) {
+        return 1;
+    }
+
     /** The theme's volume; surface layouts can exclude the buried backs of wall-attached shelves. */
     default boolean biomeContains(Disc disc, DiscShape shape, double x, double y, double z, double margin) {
         return disc.biomeContains(shape, x, y, z, margin);

@@ -269,7 +269,7 @@ class DialsTest {
             assertEquals(was.size(), is.size());
             for (int j = 0; j < was.size(); j++) {
                 if (grows(lights, was.get(j))) {
-                    assertEquals(new DiscTheme.Growth(was.get(j).feature(), every(was.get(j).every(), 2), was.get(j).on(), was.get(j).patches(), was.get(j).rimFade()), is.get(j));
+                    assertEquals(new DiscTheme.Growth(was.get(j).feature(), every(was.get(j).every(), 2), was.get(j).on(), was.get(j).patches(), was.get(j).rimFade(), was.get(j).light()), is.get(j));
                     turned++;
                 } else {
                     assertEquals(was.get(j), is.get(j));
