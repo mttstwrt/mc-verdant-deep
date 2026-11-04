@@ -64,6 +64,42 @@ Players in creative or spectating are not cursed; coming into the hole, dying an
 adjusted to where they stand. The log line `Curse:` at world load shows what is live. Milk and Artifacts' antidote vessel clear
 wither, so they clear this too.
 
+## The basilisk
+
+How often and where basilisks spawn, how they patrol and rest, and how they fight are numbers in
+`config/verdant_deep_basilisk.json` (the same folder as the dials), which the mod writes when a server first starts and reads
+at each start. They are turned live, with no restart, by operators: `/abyss basilisk` lists them, `/abyss basilisk <name>`
+says what one does, `/abyss basilisk <name> <value>` sets it for every basilisk at once, `/abyss basilisk save` writes the
+values to the file, `/abyss basilisk reload` reads the file again and `/abyss basilisk reset` goes back to what the mod ships
+without touching the file. A value outside its range is held to it. Times are in seconds; combat distances are for the
+smallest basilisk, and bigger ones multiply them by their reach (up to 1.25).
+
+| Name | Ships | Range | What it is |
+|---|---|---|---|
+| `spawn_chance_rim`, `spawn_chance_floor` | 0.15, 0.6 | 0 to 1 | chance a spawn attempt is kept just under the rim, and at the floor; it eases from one to the other with depth |
+| `spawn_below_rim` | 3 | 0 to 64 | blocks under the mouth's edge, on the attempt's own side of the hole, where spawning begins |
+| `spawn_spacing` | 32 | 0 to 128 | blocks around a spawn that must hold no other basilisk |
+| `spawn_asleep` | 0.3 | 0 to 1 | chance a natural spawn starts asleep |
+| `patrol_radius` | 28 | 4 to 96 | blocks round its den (where it first appeared) that it patrols |
+| `patrol_leg` | 16 | 4 to 48 | longest walk between two stops |
+| `patrol_pause_min`, `patrol_pause_max` | 2, 6 | 0 to 60 | pause at each stop |
+| `patrol_speed` | 0.6 | 0.1 to 2 | patrol speed, times its walking speed |
+| `awake_min`, `awake_max` | 180, 360 | 10 to 3600 | time awake and not fighting before it goes back to its den to rest |
+| `rest_min`, `rest_max` | 60, 150 | 5 to 3600 | how long it rests before it wakes by itself |
+| `circle_min`, `circle_max` | 6, 16 | 2 to 48 | nearest and farthest it circles its target between strikes |
+| `circle_speed` | 1 | 0.2 to 3 | circling speed, times its speed when fighting |
+| `strike_interval_min`, `strike_interval_max` | 4, 12 | 0.5 to 60 | time between strikes |
+| `bite_cooldown` | 3 | 0.5 to 30 | shortest time between snaps at a target that comes too close |
+| `retreat_distance` | 7 | 2 to 32 | how far from its target it retreats after a strike |
+| `retreat_time` | 3 | 0.5 to 20 | longest a retreat lasts |
+| `retreat_speed` | 1.35 | 0.2 to 3 | retreat speed, times its speed when fighting |
+| `cover` | 0.6 | 0 to 1 | how strongly it prefers spots its target cannot see while circling and retreating |
+
+Where it spawns: in a hole's open air, from `spawn_below_rim` blocks under the mouth's edge down to the floor, on a disc
+whose biome lists it (`weight` 20 in each disc biome, 12 on crystal and lava). The surface outside the hole and the bowl
+above the mouth's edge are left out. A spawn is kept only if the whole body has room coiled at the size it rolled; if not, it
+tries smaller sizes, and with no room at all there is no spawn. A natural spawn starts coiled, asleep or not.
+
 ## The settings
 
 The mod's own hole is now the cone: a single round hole, `base_radius` 150 at the floor (a little wider than the city cavern's

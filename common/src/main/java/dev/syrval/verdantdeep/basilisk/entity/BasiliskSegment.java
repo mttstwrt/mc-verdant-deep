@@ -33,7 +33,7 @@ public class BasiliskSegment extends Entity {
     private static final float BODY_DAMAGE_SHARE = 2.0F / 3.0F;
 
     private Basilisk parent;
-    private float boxScale = 1.0F; // follows the parent's size so the hitbox matches the scaled body
+    private float boxScale = 1.0F; // follows the parent's size and this segment's taper so the hitbox matches the drawn body
 
     public BasiliskSegment(EntityType<? extends BasiliskSegment> type, Level level) {
         super(type, level);
@@ -74,7 +74,8 @@ public class BasiliskSegment extends Entity {
             if (!this.level().isClientSide && this.tickCount > 20) this.discard();
             return;
         }
-        float scale = p.getBasiliskScale();
+        // Narrowed like the drawn body (BasiliskSegmentChain.taper), so the tail's hitboxes are no wider than the tail.
+        float scale = p.getBasiliskScale() * BasiliskSegmentChain.taper(getIndex(), p.getChain().count);
         if (scale != boxScale) {
             boxScale = scale;
             refreshDimensions();

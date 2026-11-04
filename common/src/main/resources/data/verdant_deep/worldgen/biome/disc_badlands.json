@@ -32,7 +32,7 @@
         "type": "verdant_deep:basilisk",
         "maxCount": 1,
         "minCount": 1,
-        "weight": 10
+        "weight": 20
       }
     ],
     "underground_water_creature": [],

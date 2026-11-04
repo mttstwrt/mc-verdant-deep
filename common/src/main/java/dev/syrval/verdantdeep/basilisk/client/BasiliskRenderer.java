@@ -26,6 +26,10 @@ public class BasiliskRenderer extends MobRenderer<Basilisk, BasiliskModel> {
     private static final ResourceLocation TEXTURE = VerdantDeep.id("textures/entity/basilisk.png");
     private static final ResourceLocation ALERT_TEXTURE = VerdantDeep.id("textures/entity/basilisk_alert.png");
     private static final ResourceLocation SEGMENT_TEXTURE = VerdantDeep.id("textures/entity/basilisk_segment.png");
+    /** Length of the segment model's body, blocks at scale 1 (BasiliskSegmentModel: 14 px). */
+    private static final float SEGMENT_LENGTH = 14.0F / 16.0F;
+    /** How far each segment reaches into the next, blocks x scale: enough to hide the wedge on the outside of a bend. */
+    private static final float SEGMENT_OVERLAP = 0.15F;
 
     private final BasiliskSegmentModel segmentModel;
 
@@ -73,17 +77,32 @@ public class BasiliskRenderer extends MobRenderer<Basilisk, BasiliskModel> {
             double sz = Mth.lerp(partialTick, c.pz[i], c.z[i]) - hz;
             float yaw = Mth.rotLerp(partialTick, c.pyaw[i], c.yaw[i]);
             float pitch = Mth.lerp(partialTick, c.ppitch[i], c.pitch[i]);
-            float taper = (1.0F - 0.55F * i / c.count) * entity.getBasiliskScale();
+            float taper = BasiliskSegmentChain.taper(i, c.count) * entity.getBasiliskScale();
+            float stretch = stretch(c, i, taper, entity.getBasiliskScale());
 
             stack.pushPose();
             stack.translate(sx, sy, sz);
             stack.mulPose(Axis.YP.rotationDegrees(180.0F - yaw));
             stack.mulPose(Axis.XP.rotationDegrees(-pitch)); // chain pitch: positive = nose down; model front is -Z
-            stack.scale(taper, taper, taper);
+            // Lengthen the cube backwards only, so its front stays where it was and it reaches into the next segment.
+            stack.translate(0.0F, 0.0F, (stretch - 1.0F) * 0.5F * SEGMENT_LENGTH * taper);
+            stack.scale(taper, taper, taper * stretch);
             stack.scale(-1.0F, -1.0F, 1.0F);
             stack.translate(0.0F, -1.501F, 0.0F);
             segmentModel.renderToBuffer(stack, consumer, light, overlay, -1);
             stack.popPose();
         }
+    }
+
+    /**
+     * How many times its own length segment {@code i} is drawn so that it reaches past the front of the next one: tapered
+     * segments are shorter than the spacing between them, which left gaps that grew toward the tail.
+     */
+    private static float stretch(BasiliskSegmentChain c, int i, float taper, float scale) {
+        if (i + 1 >= c.count) return 1.0F;
+        float length = SEGMENT_LENGTH * taper;
+        float nextLength = SEGMENT_LENGTH * BasiliskSegmentChain.taper(i + 1, c.count) * scale;
+        float needed = (float) c.link(i + 1) + 0.5F * (length - nextLength) + SEGMENT_OVERLAP * scale;
+        return Math.max(1.0F, needed / length);
     }
 }

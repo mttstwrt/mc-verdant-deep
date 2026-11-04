@@ -3,6 +3,8 @@ package dev.syrval.verdantdeep.basilisk.entity.ai;
 import java.util.EnumSet;
 
 import dev.syrval.verdantdeep.basilisk.BasiliskEntities;
+import dev.syrval.verdantdeep.basilisk.BasiliskTuning;
+import dev.syrval.verdantdeep.basilisk.BasiliskTuning.Dial;
 import dev.syrval.verdantdeep.basilisk.entity.Basilisk;
 import dev.syrval.verdantdeep.basilisk.entity.BasiliskPhase;
 import dev.syrval.verdantdeep.basilisk.entity.BasiliskSize;
@@ -13,15 +15,17 @@ import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The basilisk's two attacks, a fast lunge-and-bite predator rather than a heavy hitter.
+ * The basilisk's strikes and the retreats after them: a fast lunge-and-bite predator that hits once and gets out, rather
+ * than a heavy hitter that stays in melee. When strikes may come is BasiliskTactics' clock (the STRIKE_INTERVAL dials);
+ * between them BasiliskStalkGoal circles.
  *
- *   BITE   target within BITE_RANGE: a very short head telegraph (COIL), then one bite for attack_damage
- *          with Poison as a side effect.
- *   LUNGE  target LUNGE_MIN_RANGE..LUNGE_MAX_RANGE away on a clear straight line: telegraph (REAR or COIL),
- *          a ~7 block dash (STRIKE) that hits once for 1.5x attack_damage plus knockback, then a RECOVERY
- *          (RECOVER) where it is slowed and exposed: the punish window.
- *   After either attack it runs (RETREAT) 7-10 blocks from the target for 30-50 ticks, then swings round to a
- *   bearing 60-120 degrees off the last one (FLANK) and opens with a lunge; it bites only when the target closes in. Between attacks BasiliskStalkGoal keeps the pressure on.
+ *   LUNGE   strike due, target LUNGE_MIN_RANGE..LUNGE_MAX_RANGE away on a clear straight line: telegraph (REAR or COIL),
+ *           a ~7 block dash (STRIKE) that hits once for 1.5x attack_damage plus knockback, then a RECOVERY
+ *           (RECOVER) where it is slowed and exposed: the punish window.
+ *   BITE    target within BITE_RANGE (it came too close) and the BITE_COOLDOWN is over: a very short head telegraph
+ *           (COIL), then one snap for attack_damage with Poison as a side effect.
+ *   RETREAT after either attack, or when the target comes too close and it cannot snap: run to RETREAT_DISTANCE from
+ *           the target, out of its sight if it can, within RETREAT_TIME. Then the stalk goal circles again.
  *
  * Counterplay: the aim locks a few ticks before the dash, so changing direction makes it miss; a shield blocks
  * the hit and the poison; a lunge that would land in lava, an abyss or a wall is not started.
@@ -36,7 +40,6 @@ public class BasiliskAttackGoal extends Goal {
     private static final double LUNGE_MIN_GAP = 1.0D;       // lunge starts this far beyond bite range
     private static final double BITE_HIT_LENIENCY = 0.8D;   // extra reach at the moment the bite lands
     private static final int BITE_WINDUP_TICKS = 5;
-    private static final int BITE_COOLDOWN_TICKS = 14;
     private static final int BITE_HOLD_TICKS = 4;           // how long the open-jaw phase stays up after the bite
     // --- lunge
     private static final double LUNGE_MAX_RANGE = 9.0D;     // x BasiliskSize.reachMultiplier
@@ -50,21 +53,11 @@ public class BasiliskAttackGoal extends Goal {
     private static final double LUNGE_KNOCKBACK = 0.8D;
     private static final int LUNGE_RECOVER_TICKS = 20;
     private static final double LUNGE_RECOVER_SPEED_SCALE = 0.25D; // residual momentum kept each tick while recovering
-    private static final int LUNGE_COOLDOWN_TICKS = 60;
-    private static final int LUNGE_COOLDOWN_RANDOM = 20;    // plus 0..20
-    // --- hit and run: after any attack, retreat out of reach, then come back from another side
-    private static final double RETREAT_MIN_DISTANCE = 7.0D;   // blocks from the target; x BasiliskSize.reachMultiplier
-    private static final double RETREAT_MAX_DISTANCE = 10.0D;
-    private static final int RETREAT_MIN_TICKS = 30;
-    private static final int RETREAT_RANDOM_TICKS = 20;        // plus 0..20, so 30..50
-    private static final double RETREAT_SPEED = 1.0D;
-    private static final double FLANK_MIN_DEGREES = 60.0D;     // new bearing around the target, off the last one
-    private static final double FLANK_MAX_DEGREES = 120.0D;
-    private static final int FLANK_MAX_TICKS = 40;             // give up flanking and let the stalk goal take over
-    private static final double FLANK_ARRIVE_DISTANCE = 2.5D;
+    // --- retreat: distance, time and speed are the RETREAT dials
+    private static final double TOO_CLOSE_SHARE = 0.6D;   // of the nearest ring: closer than this and it backs off
     private static final int REPATH_TICKS = 6;
 
-    private enum Step { BITE_WINDUP, LUNGE_WINDUP, LUNGE, RECOVER, RETREAT, FLANK, DONE }
+    private enum Step { BITE_WINDUP, LUNGE_WINDUP, LUNGE, RECOVER, RETREAT, DONE }
 
     private final Basilisk basilisk;
     private Step step = Step.DONE;
@@ -72,11 +65,6 @@ public class BasiliskAttackGoal extends Goal {
     private int windup;
     private int lungeTicks;
     private int retreatTicks;
-    private double retreatDistance;
-    private double lastBearing;   // radians, from the target to us when the attack ended
-    private double flankBearing;
-    private int biteCooldownUntil;
-    private int lungeCooldownUntil;
     private boolean hitLanded;
     private Vec3 aim;
     private Vec3 lungeDir = Vec3.ZERO;
@@ -90,14 +78,24 @@ public class BasiliskAttackGoal extends Goal {
     public boolean canUse() {
         LivingEntity t = basilisk.getTarget();
         if (t == null || !t.isAlive() || basilisk.isGroggy() || basilisk.getPhase() != BasiliskPhase.IDLE) return false;
+        return canBite(t) || canLunge(t) || tooClose(t);
+    }
+
+    private boolean canBite(LivingEntity t) {
+        return basilisk.distanceTo(t) <= biteRange() && basilisk.tactics().biteReady()
+            && Math.abs(t.getY() - basilisk.getY()) <= 2.5D && basilisk.hasLineOfSight(t);
+    }
+
+    private boolean canLunge(LivingEntity t) {
         double d = basilisk.distanceTo(t);
-        if (d <= biteRange()) {
-            return basilisk.tickCount >= biteCooldownUntil && Math.abs(t.getY() - basilisk.getY()) <= 2.5D
-                && basilisk.hasLineOfSight(t);
-        }
-        return d >= lungeMinRange() && d <= lungeMaxRange() && basilisk.tickCount >= lungeCooldownUntil
+        return basilisk.tactics().strikeReady() && d >= lungeMinRange() && d <= lungeMaxRange()
             && Math.abs(t.getY() - basilisk.getY()) <= LUNGE_MAX_Y_DIFF
             && basilisk.hasLineOfSight(t) && lungeLineIsClear(t);
+    }
+
+    /** Inside the ring and not striking: back off instead of staying in melee. */
+    private boolean tooClose(LivingEntity t) {
+        return basilisk.tactics().canRetreat() && basilisk.distanceTo(t) < Math.max(lungeMinRange(), TOO_CLOSE_SHARE * basilisk.tactics().circleMin());
     }
 
     @Override
@@ -117,10 +115,14 @@ public class BasiliskAttackGoal extends Goal {
         ticks = 0;
         aim = null;
         hitLanded = false;
-        if (t != null && basilisk.distanceTo(t) <= biteRange()) {
+        if (t == null) {
+            step = Step.DONE;
+        } else if (canBite(t)) {
             step = Step.BITE_WINDUP;
             windup = BITE_WINDUP_TICKS;
             basilisk.setPhase(BasiliskPhase.COIL);
+        } else if (!canLunge(t)) {
+            beginRetreat();
         } else {
             boolean room = TerrainProbe.hasHeadroom(basilisk.level(), basilisk, Basilisk.HEAD_RAISE * basilisk.getScale() + 1.0D);
             step = Step.LUNGE_WINDUP;
@@ -150,7 +152,6 @@ public class BasiliskAttackGoal extends Goal {
             case LUNGE -> tickLunge(t);
             case RECOVER -> tickRecover();
             case RETREAT -> tickRetreat(t);
-            case FLANK -> tickFlank(t);
             default -> { }
         }
     }
@@ -168,9 +169,8 @@ public class BasiliskAttackGoal extends Goal {
             && basilisk.doHurtTarget(t)) { // a shield-blocked bite returns false, so blocking also blocks the poison
             basilisk.applyVenom(t);
         }
-        biteCooldownUntil = basilisk.tickCount + BITE_COOLDOWN_TICKS;
-        lungeCooldownUntil = Math.min(lungeCooldownUntil, basilisk.tickCount); // the lunge opens the next round
-        beginRetreat(t);
+        basilisk.tactics().struck();
+        beginRetreat();
     }
 
     // ---------------------------------------------------------------- lunge
@@ -250,72 +250,39 @@ public class BasiliskAttackGoal extends Goal {
         ticks = 0;
         basilisk.setPhase(BasiliskPhase.RECOVER);
         basilisk.getNavigation().stop();
-        lungeCooldownUntil = basilisk.tickCount + LUNGE_RECOVER_TICKS + LUNGE_COOLDOWN_TICKS
-            + basilisk.getRandom().nextInt(LUNGE_COOLDOWN_RANDOM + 1);
+        basilisk.tactics().struck();
     }
 
     private void tickRecover() {
         Vec3 mv = basilisk.getDeltaMovement();
         basilisk.setDeltaMovement(mv.x * LUNGE_RECOVER_SPEED_SCALE, mv.y, mv.z * LUNGE_RECOVER_SPEED_SCALE);
-        if (ticks >= LUNGE_RECOVER_TICKS) beginRetreat(basilisk.getTarget());
+        if (ticks >= LUNGE_RECOVER_TICKS) beginRetreat();
     }
 
-    // ---------------------------------------------------------------- retreat + flank
+    // ---------------------------------------------------------------- retreat
 
-    private void beginRetreat(LivingEntity t) {
+    private void beginRetreat() {
         step = Step.RETREAT;
         ticks = 0;
-        retreatTicks = RETREAT_MIN_TICKS + basilisk.getRandom().nextInt(RETREAT_RANDOM_TICKS + 1);
-        double size = BasiliskSize.reachMultiplier(basilisk.getScale());
-        retreatDistance = (RETREAT_MIN_DISTANCE + basilisk.getRandom().nextDouble() * (RETREAT_MAX_DISTANCE - RETREAT_MIN_DISTANCE)) * size;
-        lastBearing = t != null ? bearing(t) : 0.0D;
+        retreatTicks = BasiliskTuning.get().ticks(Dial.RETREAT_TIME);
         if (basilisk.getPhase() != BasiliskPhase.STRIKE) basilisk.setPhase(BasiliskPhase.IDLE);
     }
 
+    /** Away from the target, out of its sight if it can, until RETREAT_DISTANCE is reached or RETREAT_TIME runs out. */
     private void tickRetreat(LivingEntity t) {
         if (ticks == BITE_HOLD_TICKS && basilisk.getPhase() == BasiliskPhase.STRIKE) basilisk.setPhase(BasiliskPhase.IDLE);
-        if (ticks >= retreatTicks) { beginFlank(t); return; }
+        BasiliskTactics tactics = basilisk.tactics();
+        if (t == null || ticks >= retreatTicks || basilisk.distanceTo(t) >= tactics.retreatDistance()) {
+            step = Step.DONE;
+            return;
+        }
         basilisk.getLookControl().setLookAt(t, 40.0F, 40.0F);
         if (ticks % REPATH_TICKS != 1) return;
-        // Straight away from the target along the way we came, or a little to either side if that is blocked.
-        double b = bearing(t);
-        for (double scale : new double[] {1.0D, 0.6D}) {
-            for (double off : new double[] {0.0D, 0.6D, -0.6D}) {
-                Vec3 p = pointAround(t, b + off, retreatDistance * scale);
-                if (TerrainProbe.isNearEdge(basilisk.level(), p.x, p.y, p.z)) continue; // never retreat toward a drop
-                if (basilisk.getNavigation().moveTo(p.x, p.y, p.z, RETREAT_SPEED)) return;
-            }
+        Vec3 p = tactics.retreatPoint(t);
+        if (p == null || !basilisk.getNavigation().moveTo(p.x, p.y, p.z, BasiliskTuning.get().get(Dial.RETREAT_SPEED))) {
+            tactics.retreatBlocked(); // cornered: stand and face it; the stalk goal and the bite take it from here
+            step = Step.DONE;
         }
-    }
-
-    private void beginFlank(LivingEntity t) {
-        step = Step.FLANK;
-        ticks = 0;
-        double off = Math.toRadians(FLANK_MIN_DEGREES + basilisk.getRandom().nextDouble() * (FLANK_MAX_DEGREES - FLANK_MIN_DEGREES));
-        flankBearing = lastBearing + (basilisk.getRandom().nextBoolean() ? off : -off);
-        basilisk.getNavigation().stop();
-    }
-
-    /** Circle to a point on the new bearing at lunge range; the lunge itself starts from canUse once the line is clear. */
-    private void tickFlank(LivingEntity t) {
-        double radius = 0.5D * (lungeMinRange() + lungeMaxRange());
-        Vec3 p = pointAround(t, flankBearing, radius);
-        if (ticks >= FLANK_MAX_TICKS || basilisk.position().distanceTo(p) <= FLANK_ARRIVE_DISTANCE) { step = Step.DONE; return; }
-        basilisk.getLookControl().setLookAt(t, 40.0F, 40.0F);
-        if (ticks % REPATH_TICKS != 1) return;
-        if (TerrainProbe.isNearEdge(basilisk.level(), p.x, p.y, p.z)
-            || !basilisk.getNavigation().moveTo(p.x, p.y, p.z, RETREAT_SPEED)) {
-            flankBearing += Math.PI; // that side is blocked: try the opposite one
-        }
-    }
-
-    /** Radians, from the target to us. */
-    private double bearing(LivingEntity t) {
-        return Math.atan2(basilisk.getZ() - t.getZ(), basilisk.getX() - t.getX());
-    }
-
-    private Vec3 pointAround(LivingEntity t, double bearing, double radius) {
-        return new Vec3(t.getX() + Math.cos(bearing) * radius, Math.min(basilisk.getY(), t.getY()), t.getZ() + Math.sin(bearing) * radius);
     }
 
     // ---------------------------------------------------------------- helpers
@@ -330,6 +297,12 @@ public class BasiliskAttackGoal extends Goal {
 
     private double lungeMaxRange() {
         return LUNGE_MAX_RANGE * BasiliskSize.reachMultiplier(basilisk.getScale());
+    }
+
+    /** Where to stand to lunge from: the middle of the lunge range, for this basilisk's size. */
+    static double strikeDistance(Basilisk basilisk) {
+        double bite = BITE_RANGE + BITE_RANGE_PER_SCALE * (basilisk.getScale() - 1.0D);
+        return 0.5D * (bite + LUNGE_MIN_GAP + LUNGE_MAX_RANGE * BasiliskSize.reachMultiplier(basilisk.getScale()));
     }
 
     private double lungeMaxDistance() {

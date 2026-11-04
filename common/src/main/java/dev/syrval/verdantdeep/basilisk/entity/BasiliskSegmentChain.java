@@ -14,6 +14,13 @@ package dev.syrval.verdantdeep.basilisk.entity;
  */
 public final class BasiliskSegmentChain {
     public static final double SPACING = 0.95D;
+    /**
+     * Distance from the head to the first segment (x scale), shorter than SPACING: the head's back sits 3/16 behind its origin
+     * and a segment is 14/16 long, so at SPACING a gap opened between head and body.
+     */
+    public static final double NECK_LINK = 0.62D;
+    /** Width the last segment keeps, as a share of the first's; the body narrows evenly in between. */
+    public static final double TAIL_TAPER = 0.45D;
     public static final int NECK_SEGMENTS = 3;
     /** Sleeping coil: Archimedean spiral r = COIL_START_RADIUS + COIL_RADIUS_PER_RAD * theta around the head. */
     public static final double COIL_START_RADIUS = 0.9D;
@@ -63,14 +70,29 @@ public final class BasiliskSegmentChain {
         return SPACING * scale;
     }
 
+    /** Distance from segment {@code index}'s leader (the head for the first) to the segment. */
+    public double link(int index) {
+        return (index == 0 ? NECK_LINK : SPACING) * scale;
+    }
+
+    /**
+     * How thick segment {@code index} of {@code count} is, as a share of the first. Shared by the renderer and the hitboxes so
+     * both narrow alike; the raised-head hitbox (index -1) is full size.
+     */
+    public static float taper(int index, int count) {
+        return index <= 0 ? 1.0F : (float) (1.0D - (1.0D - TAIL_TAPER) * index / count);
+    }
+
     /** Lay the body out straight behind the head. Call once before the first update. */
     public void reset(double hx, double hy, double hz, float headYaw) {
         double rad = Math.toRadians(headYaw);
         double bx = Math.sin(rad), bz = -Math.cos(rad); // unit vector pointing behind the head
+        double behind = 0.0D;
         for (int i = 0; i < count; i++) {
-            x[i] = hx + bx * spacing() * (i + 1);
+            behind += link(i);
+            x[i] = hx + bx * behind;
             y[i] = hy;
-            z[i] = hz + bz * spacing() * (i + 1);
+            z[i] = hz + bz * behind;
             yaw[i] = headYaw;
             pitch[i] = 0.0F;
             px[i] = x[i]; py[i] = y[i]; pz[i] = z[i];
@@ -137,7 +159,7 @@ public final class BasiliskSegmentChain {
             len = Math.sqrt(dx * dx + dy * dy + dz * dz);
             dx /= len; dy /= len; dz /= len;
 
-            double sp = spacing();
+            double sp = link(i);
             double nx = lx + sp * dx, ny = ly + sp * dy, nz = lz + sp * dz;
 
             boolean neckRaised = i < NECK_SEGMENTS && ease > 0.0D;

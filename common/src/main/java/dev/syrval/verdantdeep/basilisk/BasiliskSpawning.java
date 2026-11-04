@@ -2,6 +2,7 @@ package dev.syrval.verdantdeep.basilisk;
 
 import java.util.OptionalDouble;
 
+import dev.syrval.verdantdeep.basilisk.BasiliskTuning.Dial;
 import dev.syrval.verdantdeep.basilisk.entity.Basilisk;
 import dev.syrval.verdantdeep.compat.RavineFootprintHolder;
 
@@ -15,16 +16,14 @@ import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.phys.AABB;
 
-/** Natural spawn rule of the basilisk: rare, only inside a chasm, more likely toward the floor, never near another. */
+/**
+ * Natural spawn rule of the basilisk: only in a hole's open air from just under the mouth's edge down, more likely toward the
+ * floor, never near another. The surface outside the hole, and the bowl above the mouth's edge, stay clear of them. Whether the
+ * whole body fits is checked afterwards by {@code Basilisk.checkSpawnObstruction}, once its size is known.
+ */
 public final class BasiliskSpawning {
-    /** Depth share (0 mouth, 1 floor) below which it never spawns. */
-    public static final double DEPTH_START = 0.35;
-    /** Chance of accepting a spawn attempt at the floor. */
-    public static final double BASE_CHANCE = 0.35;
-    /** Blocks around a spawn that must hold no other basilisk. */
-    public static final double NO_SPAWN_RADIUS = 48.0;
-    /** Blocks outside the chasm wall that still count as inside it. */
-    private static final double MARGIN = 4.0;
+    /** Blocks outside the hole's open air that still count as in it: the spawn block is the air over a disc's ground. */
+    private static final double MARGIN = 1.0;
 
     private BasiliskSpawning() {}
 
@@ -38,17 +37,20 @@ public final class BasiliskSpawning {
         if (spawnType != MobSpawnType.NATURAL && spawnType != MobSpawnType.CHUNK_GENERATION) {
             return true;
         }
+        BasiliskTuning tuning = BasiliskTuning.get();
         ServerLevel level = accessor.getLevel();
-        OptionalDouble depth = RavineFootprintHolder.of(level).depthShareIn(pos.getX(), pos.getY(), pos.getZ(), MARGIN);
-        if (depth.isEmpty() || random.nextDouble() >= chance(depth.getAsDouble())) {
+        OptionalDouble depth = RavineFootprintHolder.of(level).rimDepthShareIn(pos.getX(), pos.getY(), pos.getZ(), tuning.get(Dial.SPAWN_BELOW_RIM), MARGIN);
+        if (depth.isEmpty() || random.nextDouble() >= chance(tuning, depth.getAsDouble())) {
             return false;
         }
-        return level.getEntitiesOfClass(Basilisk.class, new AABB(pos).inflate(NO_SPAWN_RADIUS)).isEmpty();
+        double spacing = tuning.get(Dial.SPAWN_SPACING);
+        return spacing <= 0 || level.getEntitiesOfClass(Basilisk.class, new AABB(pos).inflate(spacing)).isEmpty();
     }
 
-    /** Chance of accepting a spawn attempt at a depth share: 0 up to {@link #DEPTH_START}, smoothly up to {@link #BASE_CHANCE} at 1. */
-    public static double chance(double depth) {
-        double t = Math.min(1.0, Math.max(0.0, (depth - DEPTH_START) / (1.0 - DEPTH_START)));
-        return t * t * (3.0 - 2.0 * t) * BASE_CHANCE;
+    /** Chance of keeping a spawn attempt at a depth share under the rim: the rim's chance at 0, easing to the floor's at 1. */
+    static double chance(BasiliskTuning tuning, double depth) {
+        double t = Math.clamp(depth, 0.0, 1.0);
+        double eased = t * t * (3.0 - 2.0 * t);
+        return tuning.get(Dial.SPAWN_CHANCE_RIM) + (tuning.get(Dial.SPAWN_CHANCE_FLOOR) - tuning.get(Dial.SPAWN_CHANCE_RIM)) * eased;
     }
 }

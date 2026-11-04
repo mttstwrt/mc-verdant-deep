@@ -5,12 +5,13 @@ import net.minecraft.core.Direction;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-/** Cheap column scans used by the move control, the strike goal and the body chain. */
+/** Cheap column scans used by the move control, the combat and patrol goals, the body chain and spawn placement. */
 public final class TerrainProbe {
     private TerrainProbe() {}
 
@@ -68,7 +69,7 @@ public final class TerrainProbe {
     }
 
     /** Standing height of the first collidable surface at or below y (within maxDown cells), else NaN. */
-    public static double groundY(Level level, double x, double y, double z, int maxDown) {
+    public static double groundY(BlockGetter level, double x, double y, double z, int maxDown) {
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         int bx = Mth.floor(x), bz = Mth.floor(z), top = Mth.floor(y + 0.01D);
         for (int dy = 0; dy <= maxDown; dy++) {
