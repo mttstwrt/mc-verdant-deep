@@ -14,6 +14,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.levelgen.RandomSupport;
 import net.minecraft.world.phys.AABB;
 
 /**
@@ -40,11 +41,21 @@ public final class BasiliskSpawning {
         BasiliskTuning tuning = BasiliskTuning.get();
         ServerLevel level = accessor.getLevel();
         OptionalDouble depth = RavineFootprintHolder.of(level).rimDepthShareIn(pos.getX(), pos.getY(), pos.getZ(), tuning.get(Dial.SPAWN_BELOW_RIM), MARGIN);
-        if (depth.isEmpty() || random.nextDouble() >= chance(tuning, depth.getAsDouble())) {
+        if (depth.isEmpty() || keepRoll(level, pos) >= chance(tuning, depth.getAsDouble())) {
             return false;
         }
         double spacing = tuning.get(Dial.SPAWN_SPACING);
         return spacing <= 0 || level.getEntitiesOfClass(Basilisk.class, new AABB(pos).inflate(spacing)).isEmpty();
+    }
+
+    /**
+     * A natural spawn asks this rule twice for one attempt at one block in one tick (NaturalSpawner.isValidSpawnPostitionForType,
+     * then Mob.checkSpawnRules), each time with a different random. Two rolls would keep an attempt with the square of the chance,
+     * so the roll comes from the block and the tick instead: both asks get the same answer.
+     */
+    private static double keepRoll(ServerLevel level, BlockPos pos) {
+        long bits = RandomSupport.mixStafford13(BlockPos.asLong(pos.getX(), pos.getY(), pos.getZ()) ^ RandomSupport.mixStafford13(level.getGameTime()));
+        return (bits >>> 11) * 0x1.0p-53;
     }
 
     /** Chance of keeping a spawn attempt at a depth share under the rim: the rim's chance at 0, easing to the floor's at 1. */
