@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "dev.syrval.verdantdeep.fabric.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "mixins": [
+    "MobCategoryMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

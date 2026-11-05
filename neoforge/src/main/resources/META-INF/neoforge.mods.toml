@@ -6,6 +6,8 @@ license = "All Rights Reserved"
 modId = "verdant_deep"
 version = "${version}"
 displayName = "Verdant Deep"
+# Adds the basilisk's mob category (RoamingBossCategory).
+enumExtensions = "META-INF/enumextensions.json"
 authors = "syrval"
 description = '''
 A giant ravine leading down to a ruined jungle city

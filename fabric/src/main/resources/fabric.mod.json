@@ -15,7 +15,7 @@
     ]
   },
   "depends": {
-    "fabricloader": ">=0.16.0",
+    "fabricloader": ">=0.20.0",
     "minecraft": "1.21.1",
     "java": ">=21",
     "architectury": ">=13.0.0",
@@ -24,7 +24,9 @@
   "suggests": {
     "volumetrics": "*"
   },
+  "accessWidener": "verdant_deep.classtweaker",
   "mixins": [
-    "verdant_deep.mixins.json"
+    "verdant_deep.mixins.json",
+    "verdant_deep.fabric.mixins.json"
   ]
 }

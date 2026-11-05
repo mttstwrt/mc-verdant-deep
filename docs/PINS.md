@@ -13,7 +13,7 @@ Source of truth is `gradle.properties`. Update both together. Pinned 2026-10-03.
 | Shadow (`com.gradleup.shadow`) | 9.4.3 | Builds the jar that Loom remaps |
 | Mappings | Mojang official | |
 | NeoForge | 21.1.252 | Latest 21.1.x found on maven.neoforged.net |
-| Fabric Loader | 0.19.5 | `fabric.mod.json` allows `>=0.16.0` |
+| Fabric Loader | 0.20.1 | `fabric.mod.json` allows `>=0.20.0`, the first to read a class tweaker v2's `extend-enum` (the basilisk's mob category) |
 | Fabric API | 0.116.17+1.21.1 | |
 | Architectury API | 13.0.11 | Latest 13.x; 21.x versions belong to newer Minecraft |
 
@@ -23,7 +23,7 @@ Source of truth is `gradle.properties`. Update both together. Pinned 2026-10-03.
 |---|---|---|
 | Architectury API | Cross-loader registries, the game's config folder (`Platform.getConfigFolder()`, where the dials' file is kept) and biome feature injection | Registration timing differs per loader; same stack as Architect's Toolbox |
 | JUnit 5 (5.11.4) | Unit tests for pure logic | Build-time only |
-| MixinExtras (bundled: 0.5.5 in Fabric Loader 0.19.5, 0.5.3 in NeoForge 21.1.252) | `@WrapOperation` and `@Local` in the density hook | Not a dependency we ship; both loaders bundle it. Wrapping instead of redirecting stays compatible with other mods hooking the same call |
+| MixinExtras (bundled: 0.5.5 in Fabric Loader 0.20.1, 0.5.3 in NeoForge 21.1.252) | `@WrapOperation` and `@Local` in the density hook | Not a dependency we ship; both loaders bundle it. Wrapping instead of redirecting stays compatible with other mods hooking the same call |
 
 Considered and held in reserve: Lithostitched (datapack biome modifiers / pool injectors).
 

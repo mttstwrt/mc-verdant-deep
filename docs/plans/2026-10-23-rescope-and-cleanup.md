@@ -25,7 +25,7 @@ first as a principle (numbers the owner tunes by eye go in config files with an 
 | D3 | Where the regression plan and its scripts live. | **Plan committed to the mod** (`docs/REGRESSION.md`, plus this plan as `docs/plans/2026-10-23-rescope-and-cleanup.md`). **Scripts:** the kit's rule (scenarios never committed to a mod) gets in the way here, so kit proposal K1 (`.agent/proposals/2026-10-23-kit-regression-suites-and-branch-bases.md`) puts the suite, fixtures and baselines in the mod's `regression/` folder, committed and never shipped. It works today by path (`bin/mc-test run verdant-deep mods/verdant-deep/regression/<suite>.sh`); K1 makes the lookup by name. |
 | D4 | The test cut. | **Approved:** cut to the keep-list in §5 (about six tests). |
 | D5 | Gas library and Minecraft versions. | **Both mods support 1.21.1 (pinned, the main modding version) and the newest version going forward.** The abyss uses the library's `1.21.1` branch. The abyss was not designed for several versions the way the library was; G-011 (§7a) makes it so. The gas stays optional at run time: the owner's own measurements show volumetrics costs more than a shader pack, so players must be able to leave it out. |
-| D6 | Basilisk spawning through `mc-boss-spawn-lib` (`roaming_boss` category, spike on `agent/boss-spawn-spike`) to escape the monster cap (diagnosis 2026-10-22). | **Deferred; recorded in §9.** B2 stays "may fail on the monster cap" until it is done. |
+| D6 | Basilisk spawning through `mc-boss-spawn-lib` (`roaming_boss` category, spike on `agent/boss-spawn-spike`) to escape the monster cap (diagnosis 2026-10-22). | **Done 2026-11-05, without the library** (§9). |
 | D7 | Branches and package moves. | **All branches deleted after the merge** (local and remote); G-010 can run any time no other abyss branch is open. |
 
 ## 3. Order and why
@@ -100,7 +100,7 @@ fingerprint boxes (`FP_BOXES`: rim slice, one disc, cavern floor, city corner; e
 | ID | Check | Judge |
 |---|---|---|
 | B1 | 10 `summon`s at `ABYSS_DISC_SAFE`: every size within the configured range, health and segment count grow with size | auto |
-| B2 | Natural spawn: survival bot at a disc fixture, `sprint 2400`, a basilisk within 128 blocks (today's `basilisk-spawn.sh`, moved to a disc fixture). May fail on the monster cap until D6 | auto, flaky noted |
+| B2 | Natural spawn: survival bot at a disc fixture, `sprint 2400`, a basilisk within 128 blocks (today's `basilisk-spawn.sh`, moved to a disc fixture). Basilisks have their own cap since D6 | auto |
 | B3 | A naturally spawned basilisk starts asleep and coiled; with the bot at ≥ 2× wake radius for 600 ticks it stays asleep; at 0.5× it wakes within 100 ticks | auto (entity data) |
 | B4 | Awake and engaged: the bot (survival, resistance) loses health within 400 ticks; the basilisk retreats after a hit (distance to bot rises within 60 ticks of the hit) | auto |
 | B5 | Edge caution: summoned at `ABYSS_DISC_EDGE` with the bot across the gap, `sprint 1200`: the basilisk never goes below the disc's surface y − 3 | auto (`wait_for` polling y) |
@@ -348,12 +348,11 @@ already reads the version per branch from `gradle.properties`.
 
 ## 9. Deferred, so it is not forgotten
 
-- **Basilisk spawning through `mc-boss-spawn-lib`** (D6). Natural basilisk spawns lose to the monster cap: about 72
-  hostiles within 128 blocks after 90 s at the city fixture, and the basilisk spawns only in the `disc_*` biomes
-  (worklog 2026-10-22). The spike `mods/mc-boss-spawn-lib@851e3ba` (branch `agent/boss-spawn-spike`) adds a
-  `boss_spawn:roaming_boss` mob category, verified on NeoForge and Fabric server boots; Fabric needs Fabric API there.
-  Next: the owner reviews the spike; a goal then moves the basilisk to that category (adding a dependency to the mod
-  needs approval) and B2 drops its "may fail" note. It also suits future bosses.
+- **Basilisk spawning through `mc-boss-spawn-lib`** (D6). Natural basilisk spawns lost to the monster cap: about 72
+  hostiles within 128 blocks after 90 s at the city fixture (worklog 2026-10-22). Done 2026-11-05 on `vrd-basilisk-behaviour`
+  without the library: the owner keeps it out until more than one mod would use it, so its spike
+  (`mods/mc-boss-spawn-lib@851e3ba`, branch `agent/boss-spawn-spike`) was copied into this mod as
+  `verdant_deep:roaming_boss` (`basilisk/RoamingBossCategory.java`). Fabric needed Loom 1.17 and Fabric Loader 0.20.
 - **The 26.x port of the abyss**, after G-011 (§7a.4).
 - **The dials file** (`config/verdant_deep.json`) could move to `config/verdant_deep/dials.json` next to the
   basilisk file, with a one-time migration. Only if the owner wants one folder; it changes a path players know.

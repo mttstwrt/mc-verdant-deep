@@ -96,9 +96,14 @@ smallest basilisk, and bigger ones multiply them by their reach (up to 1.25).
 | `cover` | 0.6 | 0 to 1 | how strongly it prefers spots its target cannot see while circling and retreating |
 
 Where it spawns: in a hole's open air, from `spawn_below_rim` blocks under the mouth's edge down to the floor, on a disc
-whose biome lists it (`weight` 20 in each disc biome, 12 on crystal and lava). The surface outside the hole and the bowl
-above the mouth's edge are left out. A spawn is kept only if the whole body has room coiled at the size it rolled; if not, it
-tries smaller sizes, and with no room at all there is no spawn. A natural spawn starts coiled, asleep or not.
+whose biome lists it. The surface outside the hole and the bowl above the mouth's edge are left out. A spawn is kept only if
+the whole body has room coiled at the size it rolled; if not, it tries smaller sizes, and with no room at all there is no
+spawn. A natural spawn starts coiled, asleep or not.
+
+Basilisks are not counted as monsters. They have a mob category of their own, `verdant_deep:roaming_boss`: at most 3 for a
+player's surroundings, despawning past 256 blocks like other hostiles do past 128. So caves full of monsters round a hole do
+not stop them, and they never take a monster's place. Each disc biome lists the basilisk under that name in its `spawners`,
+as the only entry, so its `weight` (1) does not matter; how often one appears is the dials above and the room it finds.
 
 ## The settings
 
