@@ -6,10 +6,11 @@ Source of truth is `gradle.properties`. Update both together. Pinned 2026-10-03.
 |---|---|---|
 | Minecraft | 1.21.1 | First target |
 | Mod id | verdant_deep | Also the data namespace |
-| Java | 21 | Gradle 8.14 does not run on JDK 27; build with `JAVA_HOME=/usr/lib/jvm/java-21-openjdk` |
-| Gradle | 8.14 | Wrapper copied from Architect's Toolbox |
-| Architectury Loom | 1.13-SNAPSHOT | Snapshot as in Architect's Toolbox; pin a release once one covers it |
-| Architectury Plugin | 3.4-SNAPSHOT | |
+| Java | 21 | Build with `JAVA_HOME=/usr/lib/jvm/java-21-openjdk` (the kit's `bin/mcg` picks it) |
+| Gradle | 9.7.1 | Wrapper copied from `mc-boss-spawn-lib`, whose build first used this toolchain on 1.21.1 |
+| Architectury Loom | 1.17.493 | First pinned release here; 1.13 could not read the class tweaker v2 format (`extend-enum`) that adds the basilisk's mob category on Fabric |
+| Architectury Plugin | 3.5.170 | |
+| Shadow (`com.gradleup.shadow`) | 9.4.3 | Builds the jar that Loom remaps |
 | Mappings | Mojang official | |
 | NeoForge | 21.1.252 | Latest 21.1.x found on maven.neoforged.net |
 | Fabric Loader | 0.19.5 | `fabric.mod.json` allows `>=0.16.0` |
@@ -39,8 +40,8 @@ Not dependencies: the mod loads and works without them, and nothing of theirs is
 ## Optional integration
 
 Not a dependency. The mod loads and generates the same worlds without it, and is compiled against it only
-(`compileOnly`: the jar is in Mojang's names, and Loom 1.13's `modCompileOnly` refuses a jar from the library's newer
-Loom).
+(`compileOnly`: the jar is already in Mojang's names, so it is not given to a `mod*` configuration, which would remap
+it).
 
 | Mod | Version | What it is to this mod |
 |---|---|---|
