@@ -162,7 +162,7 @@ class DiscGroundTest {
                 int minX = chunkX * 16;
                 int minZ = chunkZ * 16;
                 DiscBlocks.forEach(settings, DiscThemeTest.VANILLA, cell, cellDiscs, minX, minZ, -64, 320, (x, y, z, block) -> platforms.put(new Block(x, y, z), block));
-                DiscBlocks.forEachMound(cellDiscs, minX, minZ, -64, 320, (x, y, z, block) -> {
+                DiscBlocks.forEachMound(cell, cellDiscs, minX, minZ, -64, 320, (x, y, z, block) -> {
                     assertTrue(x >= minX && x < minX + 16 && z >= minZ && z < minZ + 16, "outside its chunk");
                     mounds.put(new Block(x, y, z), block);
                 });

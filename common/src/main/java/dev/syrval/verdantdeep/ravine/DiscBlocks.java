@@ -38,7 +38,7 @@ final class DiscBlocks {
             RavineSettings settings, RavineBounds bounds, RavineCell cell, CellDiscs cellDiscs,
             int minX, int minZ, int minY, int maxY, DiscBlockTest loose, DiscBlockSink sink) {
         forEach(new Painter(settings, bounds, cell, cellDiscs.layout(), minX, minZ, minY, maxY, loose, Optional.of(PLAIN_ROCK), sink), cellDiscs);
-        forEachMound(cellDiscs, minX, minZ, minY, maxY, loose, sink);
+        forEachMound(cell, cellDiscs, minX, minZ, minY, maxY, loose, sink);
     }
 
     private static void forEach(Painter painter, CellDiscs cellDiscs) {
@@ -54,7 +54,8 @@ final class DiscBlocks {
             Disc disc = discs.get(i);
             if (painter.reaches(disc)) {
                 DiscGround ground = cellDiscs.grounds().get(i);
-                cellDiscs.themes().get(i).ifPresent(theme -> painter.platform(disc, theme.palette(), ground));
+                int index = i;
+                cellDiscs.themes().get(i).ifPresent(theme -> painter.platform(disc, index, theme.palette(), ground));
             }
         }
     }
@@ -101,14 +102,14 @@ final class DiscBlocks {
     /**
      * The blocks of ground that stand over the platforms of the chunk whose lowest corner is {@code (minX, minZ)}, between
      * {@code minY} and {@code maxY} (exclusive): see {@link DiscGround}. A mound takes the palette's material for its depth
-     * under the mound's own top, an outcrop its own block all the way down. They are meant for open air: where a stem comes
+     * under the mound's own top, in sun or shade as its column is, an outcrop its own block all the way down. They are meant for open air: where a stem comes
      * down on the platform, or the hole's wall lies on it, that stays, which is for whoever writes them to see to.
      */
-    static void forEachMound(CellDiscs cellDiscs, int minX, int minZ, int minY, int maxY, DiscBlockSink sink) {
-        forEachMound(cellDiscs, minX, minZ, minY, maxY, DiscBlockTest.ALL, sink);
+    static void forEachMound(RavineCell cell, CellDiscs cellDiscs, int minX, int minZ, int minY, int maxY, DiscBlockSink sink) {
+        forEachMound(cell, cellDiscs, minX, minZ, minY, maxY, DiscBlockTest.ALL, sink);
     }
 
-    private static void forEachMound(CellDiscs cellDiscs, int minX, int minZ, int minY, int maxY, DiscBlockTest wanted, DiscBlockSink sink) {
+    private static void forEachMound(RavineCell cell, CellDiscs cellDiscs, int minX, int minZ, int minY, int maxY, DiscBlockTest wanted, DiscBlockSink sink) {
         List<Disc> discs = cellDiscs.layout().discs();
         for (int i = 0; i < discs.size(); i++) {
             Optional<DiscTheme> theme = cellDiscs.themes().get(i);
@@ -129,6 +130,7 @@ final class DiscBlocks {
                         continue;
                     }
                     int rock = disc.topBlockAt(Math.hypot(x - disc.x(), z - disc.z()));
+                    boolean shaded = palette.shadedAt(cell.hash(), i, cellDiscs.layout(), disc, x, z);
                     Optional<BlockStateProvider> outcrop = ground.isOutcropAt(x, z) ? ground.relief().outcrops().map(DiscRelief.Outcrops::block) : Optional.empty();
                     Optional<DiscGround.Rim> rim = ground.rimAt(x, z);
                     for (int y = Math.max(rock + 1, minY); y <= Math.min(rock + rise, maxY - 1); y++) {
@@ -138,7 +140,7 @@ final class DiscBlocks {
                         double belowTop = rock + rise - y + 0.5;
                         int at = y;
                         Optional<BlockStateProvider> block = outcrop.or(() -> rim.flatMap(r -> r.at(at)))
-                                .or(() -> palette.blockAt(new DiscPoint.Platform(belowTop, Double.MAX_VALUE)));
+                                .or(() -> palette.blockAt(new DiscPoint.Platform(belowTop, Double.MAX_VALUE), shaded));
                         if (block.isPresent()) {
                             sink.accept(x, y, z, block.get());
                         }
@@ -162,7 +164,7 @@ final class DiscBlocks {
                     && disc.z() + disc.radius() >= minZ && disc.z() - disc.radius() <= minZ + CHUNK_SIZE - 1;
         }
 
-        void platform(Disc disc, DiscPalette palette, DiscGround ground) {
+        void platform(Disc disc, int index, DiscPalette palette, DiscGround ground) {
             int bottom = Math.max((int) Math.floor(disc.floor() - shape().floorThickness()) + 1, minY);
             int top = Math.min((int) Math.ceil(disc.floor() + disc.bowl()) - 1, maxY - 1);
             int fromX = Math.max(minX, (int) Math.ceil(disc.x() - disc.radius()));
@@ -174,12 +176,13 @@ final class DiscBlocks {
                     // Under a mound the platform's own top is that much deeper in the ground, and takes the layer of that depth.
                     int rise = ground.riseAt(x, z);
                     Optional<DiscGround.Rim> rim = ground.rimAt(x, z);
+                    boolean shaded = palette.shadedAt(cell.hash(), index, layout, disc, x, z);
                     for (int y = bottom; y <= top; y++) {
                         if (disc.pointAt(shape(), x, y, z).orElse(null) instanceof DiscPoint.Platform(double belowTop, double aboveUnderside)
                                 && wanted.test(x, y, z)) {
                             int at = y;
                             Optional<BlockStateProvider> block = rim.flatMap(r -> r.at(at))
-                                    .or(() -> palette.blockAt(new DiscPoint.Platform(belowTop + rise, aboveUnderside)))
+                                    .or(() -> palette.blockAt(new DiscPoint.Platform(belowTop + rise, aboveUnderside), shaded))
                                     .or(this::fallback);
                             if (block.isPresent()) {
                                 sink.accept(x, y, z, block.get());

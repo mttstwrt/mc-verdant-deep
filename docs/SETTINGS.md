@@ -220,7 +220,11 @@ in its middle. Its numbers:
   and wet ones. A pack adds a biome to a tag to give its theme there.
 - `palette`: what the disc is made of. Blocks for the platform's `top` and `underside` (layers counted in from the surface), its
   `body`, and the `stem` (`surface` layers and `core`). Each block is a vanilla block-state provider, so it can be one block, a
-  weighted mix or noise patches. A part left out stays the terrain's own rock. The shipped jungle and mangrove
+  weighted mix or noise patches. A part left out stays the terrain's own rock. `shade` is layers that take the place of
+  the top's outermost ones where the sun does not reach (`light` below), counted down the same way; under them the top's own
+  layers go on, so a single shade layer changes only the outermost block. Where the sun is partly there, the two grounds
+  meet in patches about 5 blocks across, the shade's taking as much of the ground as the sun lacks, so the floor turns over
+  the same 8 blocks as the growth. Mounds take it too. The shipped jungle and mangrove
   platforms use cobblestone and packed-mud bodies, respectively, so original gravel veins cannot remain inside their
   thin shelves and fall out from under ponds. These materials also resist vanilla stone-replacing ore features.
 - `water`: ponds and streams lying in the platform's top (see `DiscWater`). `ponds` is the share of the top that is pond (0.1 is
@@ -343,13 +347,19 @@ The mod's own themes:
       block lower, which can be the next place along; so no block may come later in the order than the one under it at the
       same place or at the place either side. `DiscThemeTest` reads the mod's own file for that.
     - A pond's bed is the second of the three in its middle, and the first at its edges and under a stream.
+  - In the shade the patchwork is the palette's `shade` layer: the same `seed`, `noise` and places, so the stone floors run on
+    unbroken from sun into shade, but moss where the sun has grass and rooted dirt where it has coarse dirt. The three
+    layers under it are the same in both.
 - `disc_mangrove` inherits from `minecraft:mangrove_swamp` (favours the wide low discs). Mud over packed mud, about two fifths of
   it shallow water. Where the sun reaches it (`light` below), its trees stand in groves about 40 blocks across with
   clearings between: giant mangroves at the hearts of
   the groves, on mud and in water, raised 5 to 8 blocks on roots a player can walk under; tall mangroves round them; short ones
   only on the mud, out to the groves' edges. On the mud everywhere, clearings included: grass, ferns and moss carpet, big
   dripleaf and blue orchids; on the water lily pads. Under the disc, patches of hanging mangrove roots draped with vines, and
-  glow berries in patches of their own; its stem is clad in roots.
+  glow berries in patches of their own; its stem is clad in roots. In the shade the outermost block of mud is patched with
+  rooted dirt and moss (`shade`, a `noise_provider` of 10 places: 5 of mud, 1 of rooted dirt, 4 of moss). As in the jungle's
+  patchwork the noise is mostly near its middle, so the one place of rooted dirt there takes about three tenths of the
+  ground and rings the moss (a fifth); mud keeps half.
 
 Light on top of these two, which have none of the sky's under their domes. Since 2026-10-11 it is held down on purpose,
 and what there is sits high and inside leaves, so that about two thirds of a jungle disc's ground and over half of a

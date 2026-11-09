@@ -338,6 +338,87 @@
             "Name": "minecraft:cobblestone"
           }
         },
+        "shade": [
+          {
+            "thickness": 1,
+            "block": {
+              "type": "minecraft:noise_provider",
+              "seed": 1094861637,
+              "noise": {
+                "firstOctave": -5,
+                "amplitudes": [
+                  0.7,
+                  1.0,
+                  0.5,
+                  0.3
+                ]
+              },
+              "scale": 1.0,
+              "states": [
+                {
+                  "Name": "minecraft:mossy_stone_bricks"
+                },
+                {
+                  "Name": "minecraft:mossy_stone_bricks"
+                },
+                {
+                  "Name": "minecraft:mossy_stone_bricks"
+                },
+                {
+                  "Name": "minecraft:mossy_stone_bricks"
+                },
+                {
+                  "Name": "minecraft:mossy_stone_bricks"
+                },
+                {
+                  "Name": "minecraft:mossy_stone_bricks"
+                },
+                {
+                  "Name": "minecraft:mossy_cobblestone"
+                },
+                {
+                  "Name": "minecraft:rooted_dirt"
+                },
+                {
+                  "Name": "minecraft:podzol"
+                },
+                {
+                  "Name": "minecraft:moss_block"
+                },
+                {
+                  "Name": "minecraft:moss_block"
+                },
+                {
+                  "Name": "minecraft:moss_block"
+                },
+                {
+                  "Name": "minecraft:moss_block"
+                },
+                {
+                  "Name": "minecraft:mud"
+                },
+                {
+                  "Name": "minecraft:mud"
+                },
+                {
+                  "Name": "minecraft:mud"
+                },
+                {
+                  "Name": "minecraft:mud"
+                },
+                {
+                  "Name": "minecraft:mud"
+                },
+                {
+                  "Name": "minecraft:mud"
+                },
+                {
+                  "Name": "minecraft:mud"
+                }
+              ]
+            }
+          }
+        ],
         "top": [
           {
             "thickness": 1,
@@ -1051,6 +1132,57 @@
             "Name": "minecraft:packed_mud"
           }
         },
+        "shade": [
+          {
+            "thickness": 1,
+            "block": {
+              "type": "minecraft:noise_provider",
+              "seed": 1094861639,
+              "noise": {
+                "firstOctave": -5,
+                "amplitudes": [
+                  0.7,
+                  1.0,
+                  0.5,
+                  0.3
+                ]
+              },
+              "scale": 1.0,
+              "states": [
+                {
+                  "Name": "minecraft:mud"
+                },
+                {
+                  "Name": "minecraft:mud"
+                },
+                {
+                  "Name": "minecraft:mud"
+                },
+                {
+                  "Name": "minecraft:mud"
+                },
+                {
+                  "Name": "minecraft:mud"
+                },
+                {
+                  "Name": "minecraft:rooted_dirt"
+                },
+                {
+                  "Name": "minecraft:moss_block"
+                },
+                {
+                  "Name": "minecraft:moss_block"
+                },
+                {
+                  "Name": "minecraft:moss_block"
+                },
+                {
+                  "Name": "minecraft:moss_block"
+                }
+              ]
+            }
+          }
+        ],
         "top": [
           {
             "thickness": 2,

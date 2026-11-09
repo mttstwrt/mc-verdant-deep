@@ -12,12 +12,18 @@ import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvi
  * block-state providers, so a part can be one block, a weighted mix, or patches following a noise.
  *
  * @param top       layers counted down from the platform's flat top, the first one outermost
+ * @param shade     layers that take the place of the top's where the sun does not reach (see {@link #shadedAt}), counted down
+ *                  the same way. Below them the top's own layers go on at the same depth, so a shade layer for the outermost
+ *                  block alone changes only that
  * @param underside layers counted up from the platform's bottom face; where the platform is too thin for both, the top's win
  * @param body      the rest of the platform
  * @param stem      the stem, or the root of a hanging disc
  */
-public record DiscPalette(List<Layer> top, List<Layer> underside, Optional<BlockStateProvider> body, Stem stem) {
+public record DiscPalette(List<Layer> top, List<Layer> shade, List<Layer> underside, Optional<BlockStateProvider> body, Stem stem) {
     static final DiscPalette UNPAINTED = new DiscPalette(List.of(), List.of(), Optional.empty(), Stem.UNPAINTED);
+    private static final int SHADE_HASH_BASE = 2_400_000;
+    // Blocks across the patches by which the shade's ground reaches into the sun and the sun's into the shade.
+    private static final double SHADE_EDGE = 5;
 
 
     /** {@code thickness} blocks of one material. */
@@ -46,6 +52,7 @@ public record DiscPalette(List<Layer> top, List<Layer> underside, Optional<Block
 
     public static final Codec<DiscPalette> CODEC = RecordCodecBuilder.create(i -> i.group(
             Layer.CODEC.listOf().optionalFieldOf("top", List.of()).forGetter(DiscPalette::top),
+            Layer.CODEC.listOf().optionalFieldOf("shade", List.of()).forGetter(DiscPalette::shade),
             Layer.CODEC.listOf().optionalFieldOf("underside", List.of()).forGetter(DiscPalette::underside),
             BlockStateProvider.CODEC.optionalFieldOf("body").forGetter(DiscPalette::body),
             Stem.CODEC.optionalFieldOf("stem", Stem.UNPAINTED).forGetter(DiscPalette::stem)
@@ -53,20 +60,51 @@ public record DiscPalette(List<Layer> top, List<Layer> underside, Optional<Block
 
     public DiscPalette {
         top = List.copyOf(top);
+        shade = List.copyOf(shade);
         underside = List.copyOf(underside);
     }
 
-    /** The material at a point of a disc, or empty where this palette leaves the terrain's own rock. */
+    /** A palette the same in sun and shade. */
+    public DiscPalette(List<Layer> top, List<Layer> underside, Optional<BlockStateProvider> body, Stem stem) {
+        this(top, List.of(), underside, body, stem);
+    }
+
+    /** The material at a point of a disc in the sun, or empty where this palette leaves the terrain's own rock. */
     Optional<BlockStateProvider> blockAt(DiscPoint point) {
+        return blockAt(point, false);
+    }
+
+    /** The material at a point of a disc in the sun or in shade, or empty where this palette leaves the terrain's own rock. */
+    Optional<BlockStateProvider> blockAt(DiscPoint point, boolean shaded) {
         return switch (point) {
-            case DiscPoint.Platform platform -> layerAt(top, platform.belowTop())
+            case DiscPoint.Platform platform -> (shaded ? layerAt(shade, platform.belowTop()) : Optional.<BlockStateProvider>empty())
+                    .or(() -> layerAt(top, platform.belowTop()))
                     .or(() -> layerAt(underside, platform.aboveUnderside()))
                     .or(() -> body);
             case DiscPoint.Stem inStem -> layerAt(stem.surface(), inStem.inside()).or(stem::core);
         };
     }
 
-    /** Whether every one of the platform's highest {@code blocks} blocks is given a material, whatever the platform's thickness. */
+    /**
+     * Whether a column of the {@code index}-th disc of {@code layout} takes the shade's layers. Where the sun is partly there
+     * (see {@link SunSettings}) the two grounds meet in patches, the shade's taking as much of the ground as the sun lacks, so
+     * the floor turns from the one to the other over the same width as the growth does.
+     */
+    boolean shadedAt(long hash, int index, DiscLayout layout, Disc disc, int x, int z) {
+        if (shade.isEmpty()) {
+            return false;
+        }
+        double sun = layout.sunAt(disc, x, z);
+        if (sun >= 1) {
+            return false;
+        }
+        return sun <= 0 || RavineCells.shareBelow(RavineCells.smoothOver(hash, SHADE_HASH_BASE + index, x, z, SHADE_EDGE)) >= sun;
+    }
+
+    /**
+     * Whether every one of the platform's highest {@code blocks} blocks is given a material, whatever the platform's thickness.
+     * The shade's layers only cover more, never less, so the top's answer holds in shade too.
+     */
     boolean coversTop(int blocks) {
         for (int below = 0; below < blocks; below++) {
             // Far from the underside, so only the top's layers and the body can answer.
