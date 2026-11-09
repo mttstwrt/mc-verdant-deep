@@ -175,6 +175,40 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
         return holeAt(x, z).map(hole -> ChasmStats.of(settings, discsOf(hole), held));
     }
 
+    /**
+     * Calls {@code sink} with every column of a themed disc of the hole whose cell contains {@code (x, z)}, a disc's columns
+     * together, whatever chunks they lie in. Reads the discs the carve has already built for the cell.
+     *
+     * @return whether the cell has a hole in this level
+     */
+    public boolean forEachDiscColumn(int x, int z, DiscColumnSink sink) {
+        Optional<Hole> found = holeAt(x, z);
+        found.ifPresent(hole -> {
+            CellDiscs cellDiscs = discsOf(hole);
+            List<Disc> discs = cellDiscs.layout().discs();
+            for (int i = 0; i < discs.size(); i++) {
+                Optional<DiscTheme> theme = cellDiscs.themes().get(i);
+                if (theme.isEmpty()) {
+                    continue;
+                }
+                Disc disc = discs.get(i);
+                String label = ChasmStats.labelOf(settings, theme);
+                boolean surface = cellDiscs.layout().isSurface(disc);
+                DiscGround ground = cellDiscs.grounds().get(i);
+                for (int columnX = (int) Math.ceil(disc.x() - disc.radius()); columnX <= Math.floor(disc.x() + disc.radius()); columnX++) {
+                    for (int columnZ = (int) Math.ceil(disc.z() - disc.radius()); columnZ <= Math.floor(disc.z() + disc.radius()); columnZ++) {
+                        double fromAxis = Math.hypot(columnX - disc.x(), columnZ - disc.z());
+                        if (fromAxis <= disc.radius()) {
+                            sink.accept(label, surface, cellDiscs.layout().sunAt(disc, columnX, columnZ), columnX,
+                                    disc.topBlockAt(fromAxis) + ground.riseAt(columnX, columnZ), columnZ);
+                        }
+                    }
+                }
+            }
+        });
+        return found.isPresent();
+    }
+
     private Optional<Hole> holeAt(int x, int z) {
         return RavineCells.containing(seed, settings, x, z).flatMap(cell -> boundsOf(cell).map(own -> new Hole(cell, own)));
     }

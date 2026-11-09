@@ -195,6 +195,15 @@ public interface RavineFootprint {
         return Optional.empty();
     }
 
+    /**
+     * Every column of a themed disc of the hole whose cell contains {@code (x, z)}; see {@link RavineCarve#forEachDiscColumn}.
+     *
+     * @return whether there is such a hole
+     */
+    default boolean forEachDiscColumn(int x, int z, DiscColumnSink sink) {
+        return false;
+    }
+
     /** The gas of one hole, and the column of the hole's middle, which its pulls draw gas towards. */
     record HoleGasAt(double x, double z, HoleGas gas) {}
 
@@ -221,6 +230,16 @@ public interface RavineFootprint {
                     }
                 }
                 return Optional.empty();
+            }
+
+            @Override
+            public boolean forEachDiscColumn(int x, int z, DiscColumnSink sink) {
+                for (Region region : copy) {
+                    if (region.carve().forEachDiscColumn(x, z, sink)) {
+                        return true;
+                    }
+                }
+                return false;
             }
 
             @Override

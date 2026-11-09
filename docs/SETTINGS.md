@@ -588,6 +588,11 @@ Three settings keep a disc's plants from ending in a wall at its edge and from l
     in the ceiling (`weeping_curtain`, jungle); hanging roots from rooted dirt (`root_ceiling`, mangrove); beds of moss with
     small and medium amethyst buds (light 1 and 2) and pink petals (`bud_garden`, jungle and lush); and spore blossoms on
     the ceiling (`spore_blossom_ceiling`, all three). The gills and the tipped vines are in the `lights` dial.
+  - `/abyss light` (operators) measures the ground of the chasm the command is run in: for each theme, the share of its
+    columns in shade and in any sun at each block light, measured in the open block over the ground. Monsters spawn only at
+    block light 0, so the shade's share at 0 is what keeps the domes dangerous. Only loaded chunks are measured; the first
+    line says how many disc columns were left out for that, and how many have water or something taller than 4 blocks on
+    them. Run it from the console with `execute positioned <x> 64 <z> run abyss light`.
   - Everything else grows in sun and shade alike.
 - `wildness` on a theme, `min` to `max`: each disc draws one number between them and grows that many times as much of
   everything in the theme's `growth`. What a disc inherits is not changed, so a disc at the low end is a glade in grass,
