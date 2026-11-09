@@ -11,6 +11,8 @@ import dev.architectury.platform.Platform;
 import dev.architectury.utils.Env;
 import dev.architectury.registry.registries.DeferredRegister;
 import dev.syrval.verdantdeep.basilisk.BasiliskEntities;
+import dev.syrval.verdantdeep.basilisk.BasiliskTuning;
+import dev.syrval.verdantdeep.basilisk.BasiliskTuningCommand;
 import dev.syrval.verdantdeep.basilisk.client.BasiliskClient;
 import dev.syrval.verdantdeep.compat.AbyssStatsCommand;
 import dev.syrval.verdantdeep.compat.CurseTicker;
@@ -70,7 +72,12 @@ public final class VerdantDeep {
             BasiliskClient.register();
         }
 
-        CommandRegistrationEvent.EVENT.register((dispatcher, registry, selection) -> AbyssStatsCommand.register(dispatcher));
+        // The basilisk's tuning is read once per server start; /abyss basilisk changes it live from there.
+        LifecycleEvent.SERVER_STARTING.register(server -> BasiliskTuning.load(Platform.getConfigFolder()));
+        CommandRegistrationEvent.EVENT.register((dispatcher, registry, selection) -> {
+            AbyssStatsCommand.register(dispatcher);
+            BasiliskTuningCommand.register(dispatcher);
+        });
         registerCurse();
         registerGas();
 

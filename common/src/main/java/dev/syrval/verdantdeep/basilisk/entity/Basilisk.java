@@ -2,17 +2,21 @@ package dev.syrval.verdantdeep.basilisk.entity;
 
 import dev.syrval.verdantdeep.VerdantDeep;
 import dev.syrval.verdantdeep.basilisk.BasiliskEntities;
-import dev.syrval.verdantdeep.basilisk.entity.ai.BasiliskStrollGoal;
+import dev.syrval.verdantdeep.basilisk.BasiliskTuning;
+import dev.syrval.verdantdeep.basilisk.BasiliskTuning.Dial;
 import dev.syrval.verdantdeep.basilisk.entity.ai.BasiliskMoveControl;
 import dev.syrval.verdantdeep.basilisk.entity.ai.BasiliskNavigation;
+import dev.syrval.verdantdeep.basilisk.entity.ai.BasiliskPatrolGoal;
 import dev.syrval.verdantdeep.basilisk.entity.ai.BasiliskStalkGoal;
 import dev.syrval.verdantdeep.basilisk.entity.ai.BasiliskAttackGoal;
+import dev.syrval.verdantdeep.basilisk.entity.ai.BasiliskTactics;
 import dev.syrval.verdantdeep.basilisk.entity.ai.TerrainProbe;
 import dev.syrval.verdantdeep.compat.RavineFootprintHolder;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -45,6 +49,7 @@ import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.pathfinder.PathType;
@@ -65,6 +70,8 @@ public class Basilisk extends Monster {
     public static final int SEGMENT_COUNT = BasiliskSize.MAX_SEGMENTS;
     /** Depth-share margin used when rolling the size at a natural spawn (same idea as BasiliskSpawning). */
     private static final double SIZE_DEPTH_MARGIN = 4.0D;
+    /** A natural spawn that does not fit at its rolled size tries again this much smaller, down to MIN_SCALE. */
+    private static final float SPAWN_SIZE_STEP = 0.25F;
     /** How high the head is carried when fully reared, in blocks. Shared by renderer and head hitbox. */
     public static final float HEAD_RAISE = 1.55F;
     /** How high the resting head sits at the middle of the sleeping coil, in blocks. */
@@ -77,16 +84,12 @@ public class Basilisk extends Monster {
     private static final ResourceLocation ENGAGED_SPEED_ID =
         ResourceLocation.fromNamespaceAndPath(VerdantDeep.MOD_ID, "basilisk_engaged_speed");
 
-    // --- sleep / patrol (first-guess numbers)
+    // --- sleep (how long it is awake and asleep, and patrols, are BasiliskTuning dials)
     private static final int WAKE_CHECK_TICKS = 5;
     private static final double WAKE_RADIUS = 10.0D;
     private static final double WAKE_RADIUS_SNEAK = 4.0D;
     private static final double WAKE_RADIUS_SPRINT = 16.0D;
     private static final int WAKE_GROGGY_TICKS = 15;
-    private static final int IDLE_SLEEP_MIN = 600;
-    private static final int IDLE_SLEEP_MAX = 1200;
-    private static final double PATROL_SPEED = 0.6D;
-    private static final double SPAWN_SLEEP_CHANCE = 0.6D;
     /** Sleeping or engaged basilisks only despawn beyond this distance (blocks). */
     private static final double KEEP_LOADED_DISTANCE = 128.0D;
     // --- climbing
@@ -110,7 +113,18 @@ public class Basilisk extends Monster {
 
     private int climbUntil;   // not saved; tick until which a stuck-triggered climb stays on
     private int groggyTicks;  // not saved
-    private int idleTicks = -1; // not saved; counts down while awake without a target, -1 = roll a new duration
+    /** Counts down while awake and not fighting; at 0 it wants to rest. -1 = roll a new duration. Saved. */
+    private int awakeTicks = -1;
+    /** Counts down while asleep; at 0 it wakes by itself. -1 = roll a new duration. Saved. */
+    private int restTicks = -1;
+    /** Where it patrols around and goes back to rest: where it first appeared. Saved; null until first needed. */
+    @Nullable
+    private BlockPos den;
+    /** Set when its size was fitted to the spawn spot by checkSpawnObstruction, so finalizeSpawn keeps it. Not saved. */
+    private boolean sizeFitted;
+    /** Natural spawns start in the coil whose room checkSpawnObstruction checked, asleep or not. Not saved. */
+    private boolean spawnCoiled;
+    private final BasiliskTactics tactics = new BasiliskTactics(this);
 
     @Override
     public int getMaxSpawnClusterSize() {
@@ -157,7 +171,7 @@ public class Basilisk extends Monster {
         this.goalSelector.addGoal(1, new FloatGoal(this));
         this.goalSelector.addGoal(2, new BasiliskAttackGoal(this));
         this.goalSelector.addGoal(3, new BasiliskStalkGoal(this));
-        this.goalSelector.addGoal(6, new BasiliskStrollGoal(this, PATROL_SPEED));
+        this.goalSelector.addGoal(6, new BasiliskPatrolGoal(this));
         this.goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 12.0F));
         this.goalSelector.addGoal(8, new RandomLookAroundGoal(this));
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
@@ -251,31 +265,99 @@ public class Basilisk extends Monster {
         super.addAdditionalSaveData(tag);
         tag.putBoolean("Sleeping", isAsleep());
         tag.putFloat("Scale", getBasiliskScale());
+        tag.putInt("AwakeTicks", awakeTicks);
+        tag.putInt("RestTicks", restTicks);
+        if (den != null) tag.put("Den", NbtUtils.writeBlockPos(den));
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         setAsleep(tag.getBoolean("Sleeping"));
+        awakeTicks = tag.contains("AwakeTicks") ? tag.getInt("AwakeTicks") : -1;
+        restTicks = tag.contains("RestTicks") ? tag.getInt("RestTicks") : -1;
+        den = NbtUtils.readBlockPos(tag, "Den").orElse(null);
         // Saved attribute bases were just restored; re-derive them from the size. A save without "Scale"
         // keeps the roll made at construction and starts at full health.
         boolean saved = tag.contains("Scale");
         applyScale(saved ? Mth.clamp(tag.getFloat("Scale"), BasiliskSize.MIN_SCALE, BasiliskSize.MAX_SCALE) : getBasiliskScale(), !saved);
     }
 
-    /** Natural spawns (worldgen, spawner, structures) may start asleep; commands, eggs and the like stay awake. */
+    /**
+     * Natural spawns (worldgen, spawner, structures) may start asleep, and start coiled; commands, eggs and the like stay
+     * awake. Every spawn's den is where it appeared.
+     */
     @Override
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType spawnType,
                                         @Nullable SpawnGroupData spawnGroupData) {
         SpawnGroupData data = super.finalizeSpawn(level, difficulty, spawnType, spawnGroupData);
         boolean natural = spawnType == MobSpawnType.NATURAL || spawnType == MobSpawnType.CHUNK_GENERATION
             || spawnType == MobSpawnType.SPAWNER || spawnType == MobSpawnType.STRUCTURE;
-        if (natural && this.random.nextDouble() < SPAWN_SLEEP_CHANCE) setAsleep(true);
-        double depth = natural
-            ? RavineFootprintHolder.of(level.getLevel()).depthShareIn(getBlockX(), getBlockY(), getBlockZ(), SIZE_DEPTH_MARGIN).orElse(0.0D)
-            : 0.0D;
-        applyScale(BasiliskSize.roll(this.random.nextDouble(), depth), true);
+        if (natural && this.random.nextDouble() < BasiliskTuning.get().get(Dial.SPAWN_ASLEEP)) setAsleep(true);
+        spawnCoiled = natural;
+        den = blockPosition();
+        if (!sizeFitted) applyScale(BasiliskSize.roll(this.random.nextDouble(), natural ? spawnDepth(level) : 0.0D), true);
         return data;
+    }
+
+    private double spawnDepth(LevelReader level) {
+        if (!(level instanceof ServerLevelAccessor accessor)) return 0.0D;
+        return RavineFootprintHolder.of(accessor.getLevel()).depthShareIn(getBlockX(), getBlockY(), getBlockZ(), SIZE_DEPTH_MARGIN).orElse(0.0D);
+    }
+
+    /**
+     * Natural spawns and spawners: roll the size here, before finalizeSpawn, and accept the spot only if the whole body fits
+     * coiled at that size (BasiliskPlacement). The spawner checked only a small mob's box, so a big basilisk in a tight spot
+     * used to be embedded in the wall and suffocate. A size that does not fit is tried smaller; if none does, no spawn.
+     */
+    @Override
+    public boolean checkSpawnObstruction(LevelReader level) {
+        float scale = BasiliskSize.roll(this.random.nextDouble(), spawnDepth(level));
+        while (true) {
+            applyScale(scale, true);
+            float yaw = super.checkSpawnObstruction(level) ? BasiliskPlacement.coilYaw(level, this) : Float.NaN; // no water at the head's size
+            if (!Float.isNaN(yaw)) {
+                faceTo(yaw);
+                sizeFitted = true;
+                return true;
+            }
+            if (scale <= BasiliskSize.MIN_SCALE) return false;
+            scale = Math.max(BasiliskSize.MIN_SCALE, scale - SPAWN_SIZE_STEP);
+        }
+    }
+
+    private void faceTo(float yaw) {
+        setYRot(yaw);
+        setYHeadRot(yaw);
+        this.yBodyRot = yaw;
+    }
+
+    public BasiliskTactics tactics() {
+        return tactics;
+    }
+
+    /** Its den, which a basilisk from an older save or a command takes to be where it is now. */
+    public BlockPos den() {
+        if (den == null) den = blockPosition();
+        return den;
+    }
+
+    /** Awake long enough: the patrol goal takes it back to its den to rest. */
+    public boolean wantsRest() {
+        return !isAsleep() && awakeTicks == 0;
+    }
+
+    /**
+     * Lie down here if the coil has room (BasiliskPlacement), turning to fit it. False if it does not fit: the caller walks on
+     * and tries again elsewhere.
+     */
+    public boolean settleToRest() {
+        if (!onGround() || isInWaterOrBubble() || isInLava()) return false;
+        float yaw = BasiliskPlacement.coilYaw(this.level(), this);
+        if (Float.isNaN(yaw)) return false;
+        faceTo(yaw);
+        fallAsleep();
+        return true;
     }
 
     /** Patrolling (awake, no target) basilisks despawn normally; sleeping or engaged ones are kept until far away. */
@@ -287,39 +369,47 @@ public class Basilisk extends Monster {
 
     private void fallAsleep() {
         setAsleep(true);
-        idleTicks = -1;
+        awakeTicks = -1;
+        restTicks = -1;
         this.getNavigation().stop();
         this.goalSelector.getAvailableGoals().forEach(net.minecraft.world.entity.ai.goal.WrappedGoal::stop);
         this.setZza(0.0F);
         this.setXxa(0.0F);
     }
 
-    /** @param cause the player who triggered it (proximity) or the attacker; becomes the target */
+    /** @param cause the player who triggered it (proximity) or the attacker; becomes the target. Null: rested enough. */
     private void wake(@Nullable LivingEntity cause) {
         setAsleep(false);
         groggyTicks = WAKE_GROGGY_TICKS;
-        idleTicks = -1;
-        this.playSound(BasiliskEntities.SND_REAR.get(), 1.4F, 0.9F + this.random.nextFloat() * 0.2F);
+        awakeTicks = -1;
+        restTicks = -1;
+        this.playSound(BasiliskEntities.SND_REAR.get(), cause != null ? 1.4F : 0.6F, 0.9F + this.random.nextFloat() * 0.2F);
         if (cause != null) setTarget(cause);
     }
 
+    /**
+     * The rest cycle: awake for AWAKE_MIN..MAX seconds of not fighting, then (through wantsRest and the patrol goal) back to its
+     * den to sleep for REST_MIN..MAX seconds, then up again. A player close by, or a hit, wakes it early.
+     */
     private void tickSleep() {
         if (groggyTicks > 0) groggyTicks--;
+        BasiliskTuning tuning = BasiliskTuning.get();
         if (isAsleep()) {
             Vec3 v = getDeltaMovement();
             setDeltaMovement(0.0D, v.y, 0.0D);
             if (this.tickCount % WAKE_CHECK_TICKS == 0) {
                 Player p = this.level().getNearestPlayer(getX(), getY(), getZ(), WAKE_RADIUS_SPRINT, EntitySelector.NO_CREATIVE_OR_SPECTATOR);
-                if (p != null && distanceTo(p) <= wakeRadius(p)) wake(p);
+                if (p != null && distanceTo(p) <= wakeRadius(p)) {
+                    wake(p);
+                    return;
+                }
             }
+            if (restTicks < 0) restTicks = tuning.ticksBetween(Dial.REST_MIN, Dial.REST_MAX, this.random);
+            if (restTicks > 0 && --restTicks == 0) wake(null);
             return;
         }
-        if (getTarget() != null || getPhase() != BasiliskPhase.IDLE) {
-            idleTicks = -1;
-        } else if (onGround() && !isInWaterOrBubble() && !isInLava()) {
-            if (idleTicks < 0) idleTicks = IDLE_SLEEP_MIN + this.random.nextInt(IDLE_SLEEP_MAX - IDLE_SLEEP_MIN + 1);
-            if (--idleTicks == 0) fallAsleep();
-        }
+        if (awakeTicks < 0) awakeTicks = tuning.ticksBetween(Dial.AWAKE_MIN, Dial.AWAKE_MAX, this.random);
+        if (getTarget() == null && getPhase() == BasiliskPhase.IDLE && awakeTicks > 0) awakeTicks--;
     }
 
     private double wakeRadius(Player p) {
@@ -394,8 +484,9 @@ public class Basilisk extends Monster {
 
     private void updateChain() {
         if (!chainReady) {
-            if (isAsleep()) chain.resetCoiled(getX(), getY(), getZ(), getYRot());
+            if (isAsleep() || spawnCoiled) chain.resetCoiled(getX(), getY(), getZ(), getYRot());
             else chain.reset(getX(), getY(), getZ(), getYRot());
+            spawnCoiled = false;
             chainReady = true;
         }
         chain.update(getX(), getY(), getZ(), getYRot(), rearAnim, isAsleep(),

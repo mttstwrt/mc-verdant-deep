@@ -25,7 +25,7 @@ public final class BasiliskEntities {
     // Head width 0.9 is deliberate: the pathfinder sizes its node footprint as floor(width + 1),
     // so anything under 1.0 needs only a one-block-wide gap. That is what lets it thread jungle trunks.
     public static final RegistrySupplier<EntityType<Basilisk>> BASILISK = ENTITIES.register("basilisk",
-        () -> EntityType.Builder.<Basilisk>of(Basilisk::new, MobCategory.MONSTER)
+        () -> EntityType.Builder.<Basilisk>of(Basilisk::new, RoamingBossCategory.get())
             .sized(0.9F, 0.9F)
             .clientTrackingRange(10)
             .updateInterval(1)

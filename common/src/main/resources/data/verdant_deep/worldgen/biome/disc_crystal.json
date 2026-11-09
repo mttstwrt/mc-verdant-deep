@@ -89,12 +89,6 @@
         "maxCount": 1,
         "minCount": 1,
         "weight": 5
-      },
-      {
-        "type": "verdant_deep:basilisk",
-        "maxCount": 1,
-        "minCount": 1,
-        "weight": 6
       }
     ],
     "underground_water_creature": [
@@ -103,6 +97,14 @@
         "maxCount": 6,
         "minCount": 4,
         "weight": 10
+      }
+    ],
+    "verdant_deep:roaming_boss": [
+      {
+        "type": "verdant_deep:basilisk",
+        "maxCount": 1,
+        "minCount": 1,
+        "weight": 1
       }
     ],
     "water_ambient": [

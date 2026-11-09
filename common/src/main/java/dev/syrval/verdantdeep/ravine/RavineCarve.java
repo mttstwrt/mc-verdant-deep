@@ -199,6 +199,29 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
         return OptionalDouble.of(Math.clamp((hole.bounds().topY() - y) / (hole.bounds().topY() - floor), 0, 1));
     }
 
+    /**
+     * How far down its hole a point is measured from the mouth's edge on the point's own side, 0 at that edge to 1 at the floor,
+     * or empty if the point is less than {@code below} blocks under the edge or outside the hole's open air and its discs' domes
+     * by more than {@code margin}. On a sloping mouth the uphill side's edge stands above the top, so the bowl under it counts.
+     */
+    public OptionalDouble rimDepthShareIn(int x, int y, int z, double below, double margin) {
+        Optional<Hole> found = holeAt(x, z);
+        if (found.isEmpty()) {
+            return OptionalDouble.empty();
+        }
+        Hole hole = found.get();
+        double edge = hole.bounds().edgeAt(x - hole.cell().centreX(), z - hole.cell().centreZ());
+        if (y > edge - below) {
+            return OptionalDouble.empty();
+        }
+        double distance = RavineShape.signedDistance(settings, hole.bounds(), hole.cell(), discsOf(hole).layout(), x, y, z);
+        if (distance > margin) {
+            return OptionalDouble.empty();
+        }
+        double floor = hole.bounds().floorY();
+        return OptionalDouble.of(Math.clamp((edge - y) / (edge - floor), 0, 1));
+    }
+
     /** Whether a point is in the cavern's biome volume: the dome plus a margin around its surfaces. */
     public boolean isCavern(int x, int y, int z) {
         return holeAt(x, z)

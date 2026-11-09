@@ -9,6 +9,11 @@ architectury {
     fabric()
 }
 
+// The class tweaker adds the basilisk's mob category (RoamingBossCategory). Loom applies it in dev and remaps it with the jar.
+loom {
+    accessWidenerPath = file('src/main/resources/verdant_deep.classtweaker')
+}
+
 configurations {
     common {
         canBeResolved = true

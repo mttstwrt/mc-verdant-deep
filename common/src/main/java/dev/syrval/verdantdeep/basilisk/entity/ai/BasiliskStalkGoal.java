@@ -2,31 +2,32 @@ package dev.syrval.verdantdeep.basilisk.entity.ai;
 
 import java.util.EnumSet;
 
+import dev.syrval.verdantdeep.basilisk.BasiliskTuning;
+import dev.syrval.verdantdeep.basilisk.BasiliskTuning.Dial;
 import dev.syrval.verdantdeep.basilisk.entity.Basilisk;
-import dev.syrval.verdantdeep.basilisk.entity.BasiliskSize;
 
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Approach, then circle or dart in on the target while the attacks in BasiliskAttackGoal come off cooldown.
+ * Between strikes: circle and shadow the target at a distance, out of its sight where there is cover, and keep the ring
+ * centred on it as it moves. When the next strike is due (BasiliskTactics), close in to lunge range on a bearing with a clear
+ * view; BasiliskAttackGoal, which preempts this goal, takes over as soon as a lunge can start. A target that runs beyond the
+ * ring is chased.
  *
- * NAGA: NagaMovementPattern's CIRCLE state does this with findCirclePoint(); the point-on-a-ring maths below
- * is the same idea. We drop its CHARGE/INTIMIDATE/DAZE/CRUMBLE states: the basilisk's attacks live in the
- * attack goal, which preempts this goal (lower priority number) whenever it is ready.
+ * NAGA: NagaMovementPattern's CIRCLE state does the circling with findCirclePoint(); the point-on-a-ring idea is the same.
+ * Its CHARGE/INTIMIDATE/DAZE/CRUMBLE states live in the attack goal here.
  */
 public class BasiliskStalkGoal extends Goal {
-    private static final double RING_RADIUS = 7.0D;           // x BasiliskSize.reachMultiplier: inside lunge range, outside bite range
-    private static final double RING_ROTATION = 0.9D; // radians advanced per repath, like the naga's 1.0
-    private static final double CHASE_DISTANCE = 12.0D;   // beyond this, run straight at the target
-    private static final double CLOSE_IN_CHANCE = 0.1D;   // per repath inside CHASE_DISTANCE: dart in to bite range instead of circling (hit and run: rare)
-    private static final double MOVE_SPEED = 1.0D;        // multiplier on movement_speed, which already carries the engaged bonus
-    private static final int REPATH_MIN = 6;              // ticks between repaths; short, so it re-positions quickly
-    private static final int REPATH_RANGE = 6;
+    private static final int REPATH_MIN = 8;              // ticks between repaths
+    private static final int REPATH_RANGE = 7;
+    private static final double CHASE_MARGIN = 4.0D;      // blocks beyond the widest ring before it gives chase
+    private static final double REVERSE_CHANCE = 0.12D;   // per repath: turn round the other way
+    private static final double NEW_RING_CHANCE = 0.08D;  // per repath: drift to another ring
+    private static final double CHASE_SPEED = 1.1D;
 
     private final Basilisk basilisk;
-    private boolean clockwise;
     private int repathIn;
 
     public BasiliskStalkGoal(Basilisk basilisk) {
@@ -52,7 +53,7 @@ public class BasiliskStalkGoal extends Goal {
 
     @Override
     public void start() {
-        clockwise = basilisk.getRandom().nextBoolean();
+        basilisk.tactics().engage();
         repathIn = 0;
     }
 
@@ -69,31 +70,26 @@ public class BasiliskStalkGoal extends Goal {
 
         if (--repathIn > 0) return;
         repathIn = REPATH_MIN + basilisk.getRandom().nextInt(REPATH_RANGE);
-        if (basilisk.getRandom().nextInt(4) == 0) clockwise = !clockwise;
+        BasiliskTactics tactics = basilisk.tactics();
+        double speed = BasiliskTuning.get().get(Dial.CIRCLE_SPEED);
 
         double distance = basilisk.distanceTo(target);
-        if (distance > CHASE_DISTANCE || basilisk.getRandom().nextDouble() < CLOSE_IN_CHANCE) {
-            basilisk.getNavigation().moveTo(target, MOVE_SPEED);
-        } else {
-            double radius = RING_RADIUS * BasiliskSize.reachMultiplier(basilisk.getScale());
-            Vec3 p = ringPoint(basilisk, target, radius, RING_ROTATION, clockwise);
-            if (TerrainProbe.isNearEdge(basilisk.level(), p.x, p.y, p.z)) {
-                clockwise = !clockwise; // that side is an edge: try the other way round
-                p = ringPoint(basilisk, target, radius, RING_ROTATION, clockwise);
-            }
-            if (TerrainProbe.isNearEdge(basilisk.level(), p.x, p.y, p.z)
-                || !basilisk.getNavigation().moveTo(p.x, p.y, p.z, MOVE_SPEED)) {
-                basilisk.getNavigation().moveTo(target, MOVE_SPEED); // ring point unreachable (trees, cliff): just close in
-            }
+        if (distance > tactics.circleMax() + CHASE_MARGIN) {
+            basilisk.getNavigation().moveTo(target, CHASE_SPEED);
+            return;
         }
-    }
-
-    /** NAGA: findCirclePoint. A point on a ring around the target, rotated a little ahead of where we are. */
-    static Vec3 ringPoint(Basilisk basilisk, LivingEntity target, double radius, double rotation, boolean clockwise) {
-        double vx = basilisk.getX() - target.getX();
-        double vz = basilisk.getZ() - target.getZ();
-        double angle = Math.atan2(vz, vx) + (clockwise ? rotation : -rotation);
-        double y = Math.min(basilisk.getY(), target.getY());
-        return new Vec3(target.getX() + Math.cos(angle) * radius, y, target.getZ() + Math.sin(angle) * radius);
+        if (tactics.strikeReady()) {
+            // Due to strike but the attack goal has not started: out of lunge range or no clear line. Line one up.
+            Vec3 p = tactics.strikePoint(target, BasiliskAttackGoal.strikeDistance(basilisk));
+            if (p == null || !basilisk.getNavigation().moveTo(p.x, p.y, p.z, speed)) basilisk.getNavigation().moveTo(target, speed);
+            return;
+        }
+        if (basilisk.getRandom().nextDouble() < REVERSE_CHANCE) tactics.reverse();
+        if (basilisk.getRandom().nextDouble() < NEW_RING_CHANCE) tactics.newCircle();
+        Vec3 p = tactics.circlePoint(target);
+        if (p != null && basilisk.getNavigation().moveTo(p.x, p.y, p.z, speed)) return;
+        // Hemmed in (a ledge, a thicket): hold here and watch, rather than closing to melee. The next strike still comes.
+        tactics.reverse();
+        basilisk.getNavigation().stop();
     }
 }
