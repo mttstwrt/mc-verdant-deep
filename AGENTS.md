@@ -1,16 +1,18 @@
-# AGENTS.md: Shared contributor rules for all mods in this folder
+# AGENTS.md: Shared contributor rules for the owner's mods
 
-Applies to every project under `mc-mods/` (Abyss, Rift, Sky Layer, Structure Fit, Architect's Toolbox, ...).
-A project may add its own `AGENTS.md` for project-specific rules; it must not contradict this file.
-Project specs (`0N-*.md`, `README.md`) say *what* to build. This file says *how*.
+The kit's `AGENTS.md` (the `mc-dev-kit` root) takes precedence over this file: its rules on design priorities,
+performance, verification, tests, branches and approvals apply wherever this file differs. This file adds code
+standards for the owner's mods. A project may add its own rules; they must not contradict either file.
+Project specs (`0N-*.md`, `README.md`, the kit's `plan/projects/<project>/`) say *what* to build.
 
 ## 1. Guiding principles
 
-1. **Simple beats clever.** Pick the simplest design that meets the spec. No speculative abstraction,
-   no framework-building, no generic "manager" classes. Add an abstraction when there are two real
-   callers, not before.
-2. **Datapack first.** Code only where JSON cannot do the job. Keep tunables in datapack JSON,
-   not in Java constants.
+1. **No speculative structure.** Within the kit's long-term and performance priorities, prefer the simpler of
+   two designs. No framework-building or generic "manager" classes; add an abstraction when it provides a
+   concrete seam or lifecycle responsibility.
+2. **Tunables in config files.** Values the owner adjusts by eye go in a file under the instance's `config/`
+   folder, with an op command to set, save and re-apply them live; not in Java constants or world datapacks.
+   Worldgen defaults may stay as data in the jar.
 3. **Small surface area.** Every mixin, access widener/transformer, reflection call and loader hook is a
    maintenance cost on every Minecraft update. Justify each one in a comment and keep it minimal.
 4. **Portability is a design constraint, not a later task.** See section 3.
@@ -21,7 +23,8 @@ Project specs (`0N-*.md`, `README.md`) say *what* to build. This file says *how*
 - Java 21 for 1.21.x (check the pinned version in `docs/PINS.md`; do not guess). Use modern features where they
   simplify: `record`, `sealed` interfaces, pattern matching, `switch` expressions, text blocks, `var` for obvious
   types, `Optional` for return values (never fields or parameters).
-- Prefer immutability: `final` fields, records for data, unmodifiable collections.
+- Prefer immutability: `final` fields, records for data, unmodifiable collections. On hot paths the kit's
+  performance rules come first, for example no per-call allocation in per-block or per-tick loops.
 - No wildcard imports, no dead code, no commented-out code, no unused imports. Fix compiler warnings.
 - Names say what a thing is. Methods are short and do one thing. Prefer early returns over nesting.
 - Comments explain *why* (a Mojang quirk, a version workaround), never *what*. Match the density of surrounding code.
@@ -49,16 +52,15 @@ Project specs (`0N-*.md`, `README.md`) say *what* to build. This file says *how*
 - Fresh worlds only. Servers need no client-side install unless the spec says so.
 
 **Testing and verification**
-- Pure logic (math, noise functions, scoring, codecs) gets JUnit tests that need no Minecraft bootstrap
-  where possible.
-- Every phase in a spec has a gate; do not call a phase done until its gate is demonstrated (screenshots,
-  fixed-seed world, `/locate`, dedicated-server boot). Say plainly when something is untested.
-- Always verify on a **dedicated server** as well as the client, and on **both loaders**.
+- Follow the kit: build the affected targets and start the runtimes the change needs; the owner tests in game.
+- Add unit tests only when requested. Existing tests cover a handful of invariants that tuning never changes and
+  need no Minecraft bootstrap where possible; do not add JUnit tests for tuned behaviour.
+- Say plainly when something is untested.
 
 ## 3. Cross-version and cross-loader portability
 
-**Target matrix:** NeoForge and Fabric, Minecraft 1.21.1 first, newer versions later. Treat every Minecraft
-bump as expected.
+**Target matrix:** NeoForge and Fabric, on every Minecraft version the project supports (see the kit's
+`AGENTS.md` for which targets to build and start). Treat every Minecraft bump as expected.
 
 **Module layout** (same as `Architects_Toolbox`):
 ```
@@ -89,8 +91,8 @@ neoforge/  entrypoint + loader glue only
 - Datapack JSON formats change between versions (folder names, field names, registry formats). Keep the version
   in `docs/PINS.md` and note which files are version-specific.
 - When a Minecraft update breaks something, fix it in the compat layer. Do not scatter version `if`s through logic.
-- When a second Minecraft version is actually supported, adopt a multi-version tool (see the library notes in
-  each project's scope doc) rather than copying branches or source trees. Do not adopt it before then.
+- Support several Minecraft versions with a multi-version tool (Stonecutter, see the kit's skill) rather than
+  copied branches or source trees.
 - Pin exact versions of Minecraft, loaders, mappings, Java and every library in `gradle.properties` plus
   `docs/PINS.md`. No `+` or `latest` ranges.
 
@@ -99,18 +101,19 @@ neoforge/  entrypoint + loader glue only
   worldgen helper libraries such as Lithostitched) when they remove real loader glue or boilerplate. Prefer one
   well-maintained library over hand-rolled platform code, and prefer fewer libraries over more.
 - **Forbidden as hard dependencies:** terrain, biome, or content mods (for example Larion, TerraBlender-based
-  biome packs, Biomes O' Plenty) and sibling projects. These may be *test targets* and may be supported
+  biome packs, Biomes O' Plenty) and sibling content mods. These may be *test targets* and may be supported
   through optional, soft integration, but the mod must load and work without them.
 - Record each library (purpose, version, why it was chosen over writing the code) in `docs/PINS.md`.
   `common` may use a library only if it is available on both loaders for the pinned version.
 - Build-time-only tools (Gradle plugins, JUnit) are fine.
-- Shared code between projects (for example `ravine-core`) is shared by **source inclusion**, not by a
-  runtime mod dependency.
+- Code shared between projects belongs in the owner's library that owns it (kit library-first skill), consumed
+  from a Maven repository. Whether a mod requires a library or integrates with it optionally is the project's
+  decision.
 
 ## 4. Working agreements
 
-- Read the project spec and `docs/PINS.md` before changing code. If the spec and these rules conflict, stop and
-  ask; do not silently pick.
+- Read the project spec and `docs/PINS.md` before changing code. If the spec conflicts with these rules or the
+  kit's, stop and ask; do not silently pick.
 - Items marked `[recall; verify]` in specs are unverified memory. Verify against the pinned version's real
   files (use the game's data generator and decompiled sources) before building on them.
 - Keep changes small and reviewable. One concern per commit. Do not commit generated output, run directories
