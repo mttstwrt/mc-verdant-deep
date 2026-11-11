@@ -25,6 +25,13 @@ subprojects {
         silentMojangMappingsLicense()
     }
 
+    // A dev client can go straight onto a running dev server: -PquickPlayServer=<host:port>.
+    if (project.name != 'common' && rootProject.hasProperty('quickPlayServer')) {
+        loom.runs.matching { it.name == 'client' }.configureEach {
+            programArgs '--quickPlayMultiplayer', rootProject.property('quickPlayServer').toString()
+        }
+    }
+
     repositories {
         // Only the gas library, which is the owner's own and kept in this tree (libs/volumetrics/API.md).
         maven {
