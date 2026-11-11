@@ -37,7 +37,7 @@ class HoleGasTest {
     }
 
     private static DiscTheme.Gas mist(DiscTheme.Surface on, int every, GasShape shape) {
-        return new DiscTheme.Gas(MIST, every, on, Optional.empty(), Optional.empty(), shape, 0.5F);
+        return new DiscTheme.Gas(MIST, every, on, Optional.empty(), Optional.empty(), shape, 0.5F, 0F);
     }
 
     private static HoleGas gasOf(RavineSettings settings, RavineBounds bounds, int cellZ) {

@@ -6,7 +6,6 @@ import dev.architectury.event.events.common.CommandRegistrationEvent;
 import dev.architectury.event.events.common.LifecycleEvent;
 import dev.architectury.event.events.common.PlayerEvent;
 import dev.architectury.event.events.common.TickEvent;
-import dev.architectury.networking.NetworkManager;
 import dev.architectury.platform.Platform;
 import dev.architectury.utils.Env;
 import dev.architectury.registry.registries.DeferredRegister;
@@ -18,13 +17,11 @@ import dev.syrval.verdantdeep.compat.AbyssStatsCommand;
 import dev.syrval.verdantdeep.compat.CurseTicker;
 import dev.syrval.verdantdeep.compat.DiscRuinsPlacement;
 import dev.syrval.verdantdeep.compat.DiscRuinsStructure;
-import dev.syrval.verdantdeep.compat.GasTicker;
-import dev.syrval.verdantdeep.compat.HoleGasPayload;
+import dev.syrval.verdantdeep.compat.HoleGasPlacer;
 import dev.syrval.verdantdeep.compat.NestedProcessorListProcessor;
 import dev.syrval.verdantdeep.compat.RavineCentrePlacement;
 import dev.syrval.verdantdeep.compat.RavineCityStructure;
 import dev.syrval.verdantdeep.compat.SwapBlocksProcessor;
-import dev.syrval.verdantdeep.compat.client.HoleGasReceiver;
 import dev.syrval.verdantdeep.ravine.RavineCarve;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -41,8 +38,7 @@ import org.slf4j.Logger;
 public final class VerdantDeep {
     public static final String MOD_ID = "verdant_deep";
     public static final Logger LOGGER = LogUtils.getLogger();
-    // The gas library: an optional dependency, drawn on the client from media the server's data gives it.
-    private static final String GAS_LIBRARY = "volumetrics";
+    private static final HoleGasPlacer GAS = new HoleGasPlacer();
 
     private VerdantDeep() {}
 
@@ -98,28 +94,17 @@ public final class VerdantDeep {
         LifecycleEvent.SERVER_STOPPED.register(server -> curse.clear());
     }
 
-    // Gas is drawn by the gas library on the client, from that library's media in the server's data, so nothing of it runs
-    // where the library is not: no payload is registered there, and a client without it is never sent any.
+    // The holes' gas is placed by the server through the gas library, a required dependency, which sends it to the players
+    // near it and draws it on their clients. Chunk loads come from the loaders (Architectury has no event for them), through
+    // gas().
     private static void registerGas() {
-        if (!Platform.isModLoaded(GAS_LIBRARY)) {
-            return;
-        }
-        if (Platform.getEnvironment() == Env.SERVER) {
-            NetworkManager.registerS2CPayloadType(HoleGasPayload.TYPE, HoleGasPayload.STREAM_CODEC);
-        } else {
-            HoleGasReceiver.register();
-        }
-        GasTicker gas = new GasTicker();
-        TickEvent.PLAYER_POST.register(player -> {
-            if (player instanceof ServerPlayer serverPlayer) {
-                gas.tick(serverPlayer);
-            }
-        });
-        PlayerEvent.PLAYER_QUIT.register(gas::forget);
-        PlayerEvent.PLAYER_RESPAWN.register((player, conqueredEnd, reason) -> gas.forget(player));
-        PlayerEvent.CHANGE_DIMENSION.register((player, from, to) -> gas.forget(player));
-        LifecycleEvent.SERVER_STOPPED.register(server -> gas.clear());
-        LOGGER.info("Verdant Deep gives its holes gas through {}", GAS_LIBRARY);
+        LifecycleEvent.SERVER_LEVEL_UNLOAD.register(GAS::levelUnloaded);
+        LifecycleEvent.SERVER_STOPPED.register(server -> GAS.clear());
+    }
+
+    /** What gives the holes their gas: each loader reports to it every chunk of a server level that loads, on the server thread. */
+    public static HoleGasPlacer gas() {
+        return GAS;
     }
 
     // The jar carries the commit it was built from, so a log line shows whether a world ran the latest code.

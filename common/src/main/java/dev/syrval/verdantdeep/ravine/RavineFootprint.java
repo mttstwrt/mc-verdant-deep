@@ -80,8 +80,18 @@ public interface RavineFootprint {
         }
 
         @Override
-        public List<GasNear> gasNear(double x, double z, double reach) {
-            return List.of();
+        public int carveCount() {
+            return 0;
+        }
+
+        @Override
+        public long cellKeyAt(int carve, int x, int z) {
+            throw new IndexOutOfBoundsException(carve);
+        }
+
+        @Override
+        public Optional<HoleGasAt> gasOfCell(int carve, long cellKey) {
+            throw new IndexOutOfBoundsException(carve);
         }
     };
 
@@ -161,8 +171,21 @@ public interface RavineFootprint {
     /** The ruins or the troves that stand on discs with their middle in the chunk whose lowest corner is {@code (minX, minZ)}. */
     List<RuinSite> sitesIn(DiscSites which, int minX, int minZ);
 
-    /** The gas of each hole whose middle is within {@code reach} blocks of the column {@code (x, z)}; see {@link HoleGas}. */
-    List<GasNear> gasNear(double x, double z, double reach);
+    /** How many carves the level's ravines come from; each has its own grid of cells, at most one hole in each. */
+    int carveCount();
+
+    /**
+     * The key of the cell of carve {@code carve} that holds the column, which tells that carve's cells apart. Arithmetic only,
+     * whether or not the cell holds a hole, so it is cheap enough for every chunk that loads.
+     */
+    long cellKeyAt(int carve, int x, int z);
+
+    /**
+     * The gas of the hole in a cell of carve {@code carve}, by a key from {@link #cellKeyAt}, or empty where the cell holds
+     * none. The first call for a cell works its hole's discs and gas out, which can read terrain: call it off the server
+     * thread. Any thread.
+     */
+    Optional<HoleGasAt> gasOfCell(int carve, long cellKey);
 
     /**
      * What the hole of the cell containing {@code (x, z)} holds, with what each piece holds given by {@code held}; empty where
@@ -172,8 +195,8 @@ public interface RavineFootprint {
         return Optional.empty();
     }
 
-    /** The gas of one hole, the id a client knows the hole by, and the column of the hole's middle. */
-    record GasNear(long hole, double x, double z, HoleGas gas) {}
+    /** The gas of one hole, and the column of the hole's middle, which its pulls draw gas towards. */
+    record HoleGasAt(double x, double z, HoleGas gas) {}
 
     /** One bound carve, the biome (if any) resolved for its cavern, and the biomes of its disc themes that exist in the level. */
     record Region(RavineCarve carve, Optional<Holder<Biome>> cavernBiome, Map<ResourceKey<Biome>, Holder<Biome>> discBiomes) {
@@ -342,12 +365,18 @@ public interface RavineFootprint {
             }
 
             @Override
-            public List<GasNear> gasNear(double x, double z, double reach) {
-                var found = new ArrayList<GasNear>();
-                for (Region region : copy) {
-                    found.addAll(region.carve().gasNear(x, z, reach));
-                }
-                return found;
+            public int carveCount() {
+                return copy.size();
+            }
+
+            @Override
+            public long cellKeyAt(int carve, int x, int z) {
+                return copy.get(carve).carve().cellKeyAt(x, z);
+            }
+
+            @Override
+            public Optional<HoleGasAt> gasOfCell(int carve, long cellKey) {
+                return copy.get(carve).carve().gasOfCell(cellKey);
             }
         };
     }

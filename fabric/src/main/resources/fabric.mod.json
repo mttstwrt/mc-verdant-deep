@@ -19,10 +19,8 @@
     "minecraft": "1.21.1",
     "java": ">=21",
     "architectury": ">=13.0.0",
-    "fabric-api": "*"
-  },
-  "suggests": {
-    "volumetrics": "*"
+    "fabric-api": "*",
+    "volumetrics": "~0.1.0"
   },
   "accessWidener": "verdant_deep.classtweaker",
   "mixins": [

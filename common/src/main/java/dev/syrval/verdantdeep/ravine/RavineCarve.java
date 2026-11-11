@@ -1,7 +1,6 @@
 package dev.syrval.verdantdeep.ravine;
 
 import com.mojang.serialization.MapCodec;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -132,29 +131,35 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
     }
 
     /**
-     * The gas of each hole whose middle is within {@code reach} blocks of the column {@code (x, z)}, each with the id the
-     * client knows it by: the column of its middle.
+     * The cell holding the column, packed as {@link #gasOfCell} takes it. Only arithmetic: whether the cell holds a hole is
+     * not asked, since that can mean reading terrain.
      */
-    public List<RavineFootprint.GasNear> gasNear(double x, double z, double reach) {
+    public long cellKeyAt(int x, int z) {
         int size = settings.cellSize();
-        long cellX = Math.floorDiv((long) Math.floor(x), size);
-        long cellZ = Math.floorDiv((long) Math.floor(z), size);
-        int ring = (int) Math.ceil(reach / size);
-        List<RavineFootprint.GasNear> near = new ArrayList<>();
-        for (long dx = -ring; dx <= ring; dx++) {
-            for (long dz = -ring; dz <= ring; dz++) {
-                RavineCells.at(seed, settings, cellX + dx, cellZ + dz)
-                        .filter(cell -> cell.distanceToCentre(x, z) <= reach)
-                        .ifPresent(cell -> boundsOf(cell).ifPresent(own -> near.add(
-                                new RavineFootprint.GasNear(holeId(cell), cell.centreX(), cell.centreZ(), sites.gasOf(cell, own)))));
-            }
-        }
-        return near;
+        return packCell(Math.floorDiv(x, size), Math.floorDiv(z, size));
     }
 
-    // The column of a hole's middle, which tells the holes of a level apart and is no secret: it is there to be seen.
-    private static long holeId(RavineCell cell) {
-        return ((long) Math.floor(cell.centreX()) << 32) | ((long) Math.floor(cell.centreZ()) & 0xFFFFFFFFL);
+    /**
+     * The gas of the hole in a cell from {@link #cellKeyAt}, or empty if the cell holds none. The first call for a cell works
+     * its hole's discs and gas out, which may read terrain and take a while; any thread.
+     */
+    public Optional<RavineFootprint.HoleGasAt> gasOfCell(long cellKey) {
+        return RavineCells.at(seed, settings, cellX(cellKey), cellZ(cellKey))
+                .flatMap(cell -> boundsOf(cell).map(own -> new RavineFootprint.HoleGasAt(cell.centreX(), cell.centreZ(), sites.gasOf(cell, own))));
+    }
+
+    // Cells are at least 64 blocks, so 24 bits each way hold every cell of a 30 million block world.
+    private static long packCell(long cellX, long cellZ) {
+        return (cellX & 0xFFFFFFL) << 24 | (cellZ & 0xFFFFFFL);
+    }
+
+    // Each half sign-extended back from its 24 bits.
+    private static long cellX(long key) {
+        return key << 16 >> 40;
+    }
+
+    private static long cellZ(long key) {
+        return key << 40 >> 40;
     }
 
     /** Whether the cell holds a ravine in this level. */

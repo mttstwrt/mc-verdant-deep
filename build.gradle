@@ -25,6 +25,17 @@ subprojects {
         silentMojangMappingsLicense()
     }
 
+    repositories {
+        // Only the gas library, which is the owner's own and kept in this tree (libs/volumetrics/API.md).
+        maven {
+            name = 'Volumetrics'
+            url = rootProject.file('libs/volumetrics')
+            content {
+                includeGroup 'dev.syrval.volumetrics'
+            }
+        }
+    }
+
     dependencies {
         minecraft "net.minecraft:minecraft:$rootProject.minecraft_version"
         mappings loom.officialMojangMappings()

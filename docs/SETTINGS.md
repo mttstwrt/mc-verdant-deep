@@ -702,19 +702,22 @@ stays level by the water. To have none, take the block out or turn the `falls` d
 
 ### Gas
 
-Gas is a haze through each hole, mist, spray at the falls, swamp breath, smoke off lava and a violet shimmer, drawn by the
-owner's gas library, Volumetrics
-(`mc-volumetric-effects-lib`). It is optional. Without it on the server nothing is sent, and the rest of this section does
-nothing. To see the gas, Volumetrics must be on the server and the client, and Verdant Deep on the client. The world's
-blocks are never changed by it.
+Gas is a haze through each hole, mist, spray at the falls, swamp breath, smoke off lava and a violet shimmer, placed by the
+server through the owner's gas library, Volumetrics (`mc-volumetric-effects-lib`), which sends it to the players near it
+and draws it on their clients. The library is required on the server and the client. The world's blocks are never changed
+by it.
 
 The kinds are the library's media, in `data/verdant_deep/volumetrics/medium/`: `haze`, `mist`, `spray`, `cavern_mist`,
-`bog`, `ember` and `shimmer`. A medium is how the gas moves and looks: `gravity` (positive sinks), `dispersion`, `decay`,
-`color`, `opacity`, `emissive` and the rest, all as the library's own SCOPE has them. The library holds up to 32 kinds at
-once near the camera, so a use that wants a look of its own can have a medium of its own.
+`bog`, `ember` and `shimmer`. A medium is how the gas moves (`motion`: `diffusion`, `decay`, `drift.y` up or negative to
+sink, `draft`, `response.wind`) and how it meets light (`optics`: `extinction` per block at density 1, `albedo`, `phase`,
+`emission`, `ambient` for daylight and `lamps` for light sources), all as the library's own SCOPE has them. Density 1 is
+pure gas and the most a cell holds. The library holds up to 32 kinds at once near the camera, so a use that wants a look
+of its own can have a medium of its own. `/volumetrics tune medium verdant_deep:<id> <path> <value>` changes one live on a
+server (operators); copy what works back into the file.
 
-Where gas comes from is in `carve.json`, in two places. Every place is worked out from the hole's hashes, as growth is, and
-the server sends each player the gas of the holes within 512 blocks.
+Where gas comes from is in `carve.json`, in two places. Every place is worked out from the hole's hashes, as growth is. The
+server places each chunk's share of a hole's gas as the chunk loads (the haze with the chunk of the hole's middle), and the
+library takes it away again when the chunk unloads.
 
 - A theme's `gas` (a list): sources spread over one surface of each of its discs, as a `growth` entry is.
   - `medium`: the gas, by its id.
@@ -725,26 +728,31 @@ the server sends each player the gas of the holes within 512 blocks.
     in the groves.
   - `shape`: `{"type": "cylinder", "radius", "height"}`, standing on the place (height 1 if left out), or
     `{"type": "sphere", "radius"}`, resting on it or hanging from it.
-  - `rate`: density each cell of the shape gains per second, as the library counts it (0 to 64).
+  - `rate`: density each cell of the shape gains per second, as the library counts it (0 to 64; density 1 is pure gas).
+  - `rise` (0 if left out): blocks per second the gas leaves the shape with, upwards, or down if negative (-16 to 16).
 - `gas` at the top of the file, for the hole itself:
-  - `fog`: the haze through the whole hole, one of the library's fogs, which are not simulated and are drawn at any
-    distance. `medium` is its look (the haze's simulation plays no part). It is `bottom_density` thick at the floor and
+  - `fog`: the haze through the whole hole, a field the library draws and never simulates, drawn at any distance.
+    `medium` is its look (the haze's motion plays no part). It is `bottom_density` thick at the floor and
     thins by the same share each block up to `top_density` at the top; over its outermost `edge` blocks (16 if left out)
     it fades to nothing. It fills a cone from round the hole's cone and cavern at the floor to round the mouth at the top,
     reaching an edge past the walls and below the floor so that it is at its full thickness where they are; what of it
-    lies in the rock is never seen. Light through `n` blocks of it is dimmed to `exp(-opacity × density × n)`; the
-    `haze` medium's opacity is 1, so at the floor (0.022 as shipped) a fifth of the light is gone in 10 blocks.
+    lies in the rock is never seen. Light through `n` blocks of it is dimmed to `exp(-extinction × density × n)`; the
+    `haze` medium's extinction is 1, so at the floor (0.022 as shipped) a fifth of the light is gone in 10 blocks.
     `above_entrance` 16 ends it that many blocks over where the entrance bowl meets the cone instead of at the lip, with
     `top_density` there: it thins out across the lowest surface shelves and leaves the higher ones in clear air. Left
     out, or where the bowl starts nearer the lip than that, it goes up to the lip.
-  - `falls.spray` rests on the water each fall lands in.
+  - `falls.spray` rests on the water each fall lands in, and rises off it (`rise` 1 as shipped).
   - `falls.curtain` fills a cylinder up the whole drop, as wide as the fall and `margin` (1.5) blocks more each side.
   - `springs` rests on the pool where each spring's water comes down.
+  - Each of these takes `rise` as a theme's gas does.
   - `cavern` (a list) spreads sources over the cavern floor, one for every `every` blocks, within 95% of its radius.
   - `surface_rate` 0.4 (1 if left out): the share of their `rate` that sources on a surface disc give: its theme's gas, the
     spray and curtain of a fall that leaves it, and a spring's over it. Gas reads stronger in daylight.
 
-A hole sends at most 4096 sources. Past that the themes' last ones are left out, and the log says so once for the hole.
+Over each disc whose theme gives off gas, that gas drifts toward the hole's axis at 1.5 blocks a second, from a block under
+the platform to 8 above it and 6 blocks round it (code, `compat/HoleGasInputs`).
+
+A hole places at most 4096 sources. Past that the themes' last ones are left out, and the log says so once for the hole.
 The hole's own come first. The `haze` dial turns the fog's two densities, and at 0 takes it away; no other dial turns gas.
 
 ### Ruins
