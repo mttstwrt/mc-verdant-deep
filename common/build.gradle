@@ -9,6 +9,8 @@ dependencies {
     // The gas library is required at run time; this compiles against its API jar alone, which is in Mojang's names already,
     // so it is plain compileOnly and not a mod* configuration (which would remap it). Its classes ship in the library's jar.
     compileOnly "dev.syrval.volumetrics:volumetrics-api:$rootProject.volumetrics_api_version"
+    // Tests that load a class naming an API type (VerdantDeep registers its placement rule) need the jar at run time too.
+    testRuntimeOnly "dev.syrval.volumetrics:volumetrics-api:$rootProject.volumetrics_api_version"
 
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'

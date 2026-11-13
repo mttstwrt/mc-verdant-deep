@@ -47,7 +47,7 @@ Layers, mapped to code:
 | Wall ruins (later) | Jigsaw structures anchored on ledges | JSON in `common` | Yes |
 | Disc ruins | Custom `verdant_deep:disc_ruins` structure and placement: one piece of a template pool at each place the discs' own code finds for a ruin | Sites in `common/…/ravine`, structure and placement in `common/…/compat`, pools and processors in JSON | Yes |
 | Roots | Winding wooden roots grown once for each hole and written into each chunk with the discs' materials; a block tag keeps the mod's structures from building over them | Growing and blocks in `common/…/ravine`, written by `compat/DiscPainter`, numbers and the tag in JSON | Yes |
-| Gas | A haze through each hole, and mist, spray, cavern mist, bog, ember and shimmer from each disc theme's surfaces, the falls, springs and cavern floor, placed by the server through the owner's gas library (Volumetrics), which sends and draws it | Sources, pulls and the haze worked out in `common/…/ravine` (`HoleGas`); turned into the library's v2 inputs by `compat/HoleGasInputs` and placed chunk by chunk as chunks load by `compat/HoleGasPlacer`; media, sources and the haze in JSON | Yes (required dependency) |
+| Gas | A haze through each hole, and mist, spray, cavern mist, bog, ember and shimmer from each disc theme's surfaces, the falls, springs and cavern floor, placed by the server through the owner's gas library (Volumetrics), which sends and draws it | Sources, pulls and the haze worked out in `common/…/ravine` (`HoleGas`); turned into the library's v2 inputs by `compat/HoleGasInputs` and placed chunk by chunk as chunks load by `compat/HoleGasRule`, the library's placement rule; media, sources and the haze in JSON | Yes (required dependency) |
 
 Custom Java is limited to: density-function type(s), a structure-placement type, the fluid-override mixin, the
 density-wrap mixin, and the `BiomeInjector` glue. Everything else is data.
@@ -3122,10 +3122,14 @@ gas payload and the optional-presence indirection are gone:
 
 - Removed: `compat/GasTicker` (each player's holes worked out twice a second and sent), `compat/HoleGasPayload`,
   `compat/client/VolumetricsGas`, `GasDrawer` and `HoleGasReceiver`, the `isModLoaded` guard, and the payload's test.
-- `compat/HoleGasPlacer`: as a chunk of a server level loads (NeoForge's `ChunkEvent.Load`, Fabric API's
-  `ServerChunkEvents.CHUNK_LOAD`, reported by each loader's entrypoint), the hole of its cell gives it its share of the
-  gas, scoped to the chunk, through `owner.server(level)`. A hole is worked out once, off the server thread, the first
-  time a chunk of its cell loads; then the chunks of it that are loaded get their share. Nothing ticks.
+- `compat/HoleGasRule` (2026-11-12, VOL-082 2e; was `HoleGasPlacer` with a chunk-load event in each loader): the
+  library's code-tier placement rule (`owner.registerPlacementRule`, a server rule, registered in `VerdantDeep.init`).
+  The library calls it for each chunk of a server level that loads; the hole of the chunk's cell gives the chunk its
+  share of the gas, which the library scopes to the chunk, sends to the players tracking it and ends as it unloads. A
+  hole is worked out once, off the server thread, the first time a chunk of its cell loads; its chunks that load
+  meanwhile hand the library that work to wait for (`out.later`), and get their share once it is done if they are still
+  loaded. A level whose terrain has no ravine carve gets no placer at all. No loader event, no lifecycle hook, nothing
+  ticks.
 - `compat/HoleGasInputs`: a hole's `HoleGas` as v2 inputs by chunk. A source per place, as before, with sources of equal
   definition sharing one instance; in place of the zero-rate emitters with a flow, one `toward` force per disc that gives
   off gas, anchored on the hole's axis with its region over the disc and scoped to the disc's chunk (the library was

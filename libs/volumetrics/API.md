@@ -9,7 +9,7 @@ dev.syrval.volumetrics:volumetrics-neoforge:0.1.0+mc1.21.1   jar, POM: the NeoFo
 dev.syrval.volumetrics:volumetrics-fabric:0.1.0+mc1.21.1     jar, POM: the Fabric mod, for the dev runs
 ```
 
-Published 2026-11-11 from the library's `agent/VOL-082-api-v2` branch (VOL-082 1g1), from its 1.21.1 nodes. Where this
+Published 2026-11-12 from the library's `agent/VOL-082-api-v2` branch (VOL-082 2e), from its 1.21.1 nodes. Where this
 file and the sources jar disagree, the sources jar wins; the library's spec is the kit's `plan/research/vol-api-v2.md`.
 
 ## How this mod takes it
@@ -25,20 +25,24 @@ file and the sources jar disagree, the sources jar wins; the library's spec is t
 
 ## What this mod uses
 
-All of it from the server, in `compat/HoleGasPlacer` and `compat/HoleGasInputs`:
+All of it from the server, in `compat/HoleGasRule` and `compat/HoleGasInputs`:
 
-- `VolumetricsApi.owner("verdant_deep").server(level)`: where the server adds what every player near it sees. The
-  library sends each input to the players tracking its chunk (the scope's chunk, for one scoped to a chunk), sends placed
-  fields to everyone in the level, and takes them away again; this mod sends nothing of its own.
-- `add(Source, Attachment.at(pos), Scope.chunk(chunk))` for each source: a medium, a shape relative to the anchor
-  (`Cylinder` standing on it, `Sphere` centred on it), `Source.Rate`, and a `velocity` up for a `rise`. Equal sources are
-  one instance, so a payload writes each kind once.
-- `add(Force, ...)` with a `Toward` kind for the pull over each disc: anchored on the hole's axis (the line it pulls to),
-  its region a `Cylinder` moved out over the disc, `media` the disc's gases, scoped to the chunk of the disc's middle.
-- `add(PlacedField.drawn(haze, field), Attachment.at(Vec3.ZERO), Scope.chunk(middle))` for the haze, written in world
-  coordinates: `Mul(Inside(Cylinder(base, height, bottomRadius, topRadius), edge), Exponential over Altitude)` (or
-  `Linear`, or `Constant`), the form the library draws in one step.
-- Handles are not kept: every input ends when its chunk unloads, and is added again when it loads.
+- `VolumetricsApi.owner("verdant_deep").registerPlacementRule(id, new HoleGasRule())` (`@Experimental`): a server rule.
+  The library calls its placer (`start(level)`, null for a level with no ravine carve) for each chunk of a server level
+  that loads, adds what it gives through `ChunkPlacements` scoped to that chunk, sends each input to the players tracking
+  the chunk (placed fields to everyone in the level), ends it when the chunk unloads and calls the rule again when it
+  loads again; this mod sends nothing, listens to no chunk event and holds no handle.
+- `out.add(Source, Attachment.at(pos))` for each source: a medium, a shape relative to the anchor (`Cylinder` standing on
+  it, `Sphere` centred on it), `Source.Rate`, and a `velocity` up for a `rise`. Equal sources are one instance, so a
+  payload writes each kind once.
+- `out.add(Force, ...)` with a `Toward` kind for the pull over each disc: anchored on the hole's axis (the line it pulls
+  to), its region a `Cylinder` moved out over the disc, `media` the disc's gases, added for the chunk of the disc's
+  middle.
+- `out.add(PlacedField.drawn(haze, field), Attachment.at(Vec3.ZERO))` for the haze, added for the chunk of the hole's
+  middle and written in world coordinates: `Mul(Inside(Cylinder(base, height, bottomRadius, topRadius), edge),
+  Exponential over Altitude)` (or `Linear`, or `Constant`), the form the library draws in one step.
+- `out.later(hole, then)` for a chunk whose hole is still being worked out off the server thread: the library calls
+  `then` on the server thread once it is done, if the chunk is still loaded.
 - Media are this mod's data, `data/verdant_deep/volumetrics/medium/*.json`, in the v2 format (`motion`, `optics`,
   `detail`). `/volumetrics tune medium verdant_deep:<id> <path> <value>` changes one live.
 

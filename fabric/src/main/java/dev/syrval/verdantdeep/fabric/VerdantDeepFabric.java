@@ -2,7 +2,6 @@ package dev.syrval.verdantdeep.fabric;
 
 import dev.syrval.verdantdeep.VerdantDeep;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.loot.v3.LootTableEvents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
@@ -18,8 +17,6 @@ public final class VerdantDeepFabric implements ModInitializer {
     @Override
     public void onInitialize() {
         VerdantDeep.init();
-        // On the server thread, as each chunk of a server level becomes full: where the holes' gas is placed from.
-        ServerChunkEvents.CHUNK_LOAD.register((level, chunk) -> VerdantDeep.gas().chunkLoaded(level, chunk.getPos()));
         LootTableEvents.MODIFY.register((key, tableBuilder, source, registries) -> {
             if (BuiltInLootTables.JUNGLE_TEMPLE.equals(key)) {
                 tableBuilder.withPool(LootPool.lootPool().add(NestedLootTable.lootTableReference(GOLDEN_APPLES)));

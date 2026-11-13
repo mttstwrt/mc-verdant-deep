@@ -17,12 +17,13 @@ import dev.syrval.verdantdeep.compat.AbyssStatsCommand;
 import dev.syrval.verdantdeep.compat.CurseTicker;
 import dev.syrval.verdantdeep.compat.DiscRuinsPlacement;
 import dev.syrval.verdantdeep.compat.DiscRuinsStructure;
-import dev.syrval.verdantdeep.compat.HoleGasPlacer;
+import dev.syrval.verdantdeep.compat.HoleGasRule;
 import dev.syrval.verdantdeep.compat.NestedProcessorListProcessor;
 import dev.syrval.verdantdeep.compat.RavineCentrePlacement;
 import dev.syrval.verdantdeep.compat.RavineCityStructure;
 import dev.syrval.verdantdeep.compat.SwapBlocksProcessor;
 import dev.syrval.verdantdeep.ravine.RavineCarve;
+import dev.syrval.volumetrics.api.VolumetricsApi;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -38,7 +39,6 @@ import org.slf4j.Logger;
 public final class VerdantDeep {
     public static final String MOD_ID = "verdant_deep";
     public static final Logger LOGGER = LogUtils.getLogger();
-    private static final HoleGasPlacer GAS = new HoleGasPlacer();
 
     private VerdantDeep() {}
 
@@ -95,16 +95,10 @@ public final class VerdantDeep {
     }
 
     // The holes' gas is placed by the server through the gas library, a required dependency, which sends it to the players
-    // near it and draws it on their clients. Chunk loads come from the loaders (Architectury has no event for them), through
-    // gas().
+    // near it and draws it on their clients. The library calls the rule for each chunk of a server level that loads and owns
+    // what it adds, so no loader event and no lifecycle hook is needed here.
     private static void registerGas() {
-        LifecycleEvent.SERVER_LEVEL_UNLOAD.register(GAS::levelUnloaded);
-        LifecycleEvent.SERVER_STOPPED.register(server -> GAS.clear());
-    }
-
-    /** What gives the holes their gas: each loader reports to it every chunk of a server level that loads, on the server thread. */
-    public static HoleGasPlacer gas() {
-        return GAS;
+        VolumetricsApi.owner(MOD_ID).registerPlacementRule(id("hole_gas"), new HoleGasRule());
     }
 
     // The jar carries the commit it was built from, so a log line shows whether a world ran the latest code.
