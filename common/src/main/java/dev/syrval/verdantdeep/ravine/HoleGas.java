@@ -14,18 +14,22 @@ import net.minecraft.resources.ResourceLocation;
  * shapes as the rest of the hole, not from the world's blocks, so a source may stand where a player has since built; the gas
  * library only feeds the open cells it finds.
  *
+ * <p>Each medium has sources of its own. TODO(VOL-082 step 3): once the gas library converts one medium into another, warm
+ * discs can give off steam that cools into their mist instead of giving off the mist itself.
+ *
  * @param sources the hole's sources, at most {@link #MAX_SOURCES}
  * @param fogs    the hole's fogs, at most {@link #MAX_FOGS}
- * @param flows   where the gas on the hole's discs drifts toward its axis, at most {@link #MAX_FLOWS}
- * @param dropped how many more sources there were, left out so that what a player is sent stays bounded
+ * @param flows   where the gas on the hole's discs drifts toward its axis, one for each disc that gives off gas, at most
+ *                {@link #MAX_FLOWS}
+ * @param dropped how many more sources there were, left out so that what a hole places stays bounded
  */
 public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> flows, int dropped) {
     public static final HoleGas NONE = new HoleGas(List.of(), List.of(), List.of(), 0);
-    /** The most sources one hole sends. */
+    /** The most sources one hole places. */
     public static final int MAX_SOURCES = 4096;
-    /** The most fogs one hole sends. */
+    /** The most fogs one hole places. */
     public static final int MAX_FOGS = 4;
-    /** The most flow regions one hole sends. */
+    /** The most flow regions one hole places. */
     public static final int MAX_FLOWS = 256;
     // A flow region covers from this far under a disc's platform to this far above it.
     private static final double FLOW_BELOW = 1;
@@ -67,7 +71,8 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
         return new HoleGas(found.subList(0, found.size() - dropped), fogs, flows, dropped);
     }
 
-    // One region for each gas of each disc's theme, standing from under the platform's top (its middle is at `floor`) to above it.
+    // One region for each disc whose theme gives off gas, moving those gases, standing from under the platform's top (its middle
+    // is at `floor`) to above it.
     private static List<GasFlow> flowsOf(CellDiscs discs) {
         List<Disc> all = discs.layout().discs();
         List<GasFlow> flows = new ArrayList<>();
@@ -75,10 +80,9 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
             Disc disc = all.get(i);
             var media = new LinkedHashSet<ResourceLocation>();
             discs.themes().get(i).ifPresent(theme -> theme.gas().forEach(gas -> media.add(gas.medium())));
-            for (ResourceLocation medium : media) {
-                if (flows.size() < MAX_FLOWS) {
-                    flows.add(new GasFlow(medium, disc.x(), disc.floor() - FLOW_BELOW, disc.z(), (float) disc.radius(), (float) (FLOW_BELOW + FLOW_ABOVE)));
-                }
+            if (!media.isEmpty()) {
+                flows.add(new GasFlow(List.copyOf(media), disc.x(), disc.floor() - FLOW_BELOW, disc.z(), (float) disc.radius(),
+                        (float) (FLOW_BELOW + FLOW_ABOVE)));
             }
         }
         return flows;
@@ -131,7 +135,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
                         (x, z) -> each.weightAt(cell.hash(), index, disc, x, z), minX, minZ, (x, z, fromAxis) -> {
                             OptionalDouble y = anchorOf(each, theme.get(), disc, ground, shape, lava, cell.hash(), index, x, z, fromAxis);
                             if (y.isPresent()) {
-                                found.add(new GasSource(each.medium(), each.shape(), x + 0.5, y.getAsDouble(), z + 0.5, each.rate() * share));
+                                found.add(new GasSource(each.medium(), each.shape(), x + 0.5, y.getAsDouble(), z + 0.5, each.rate() * share, each.rise()));
                             }
                         });
             }
@@ -213,9 +217,9 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
             int landing = fall.level() - fall.drop();
             float share = rateOn(discs, fall.from(), surfaceRate);
             falls.spray().ifPresent(spray -> found.add(
-                    new GasSource(spray.medium(), spray.shape(), x, spray.shape().standingOn(landing), z, spray.rate() * share)));
-            falls.curtain().ifPresent(curtain -> found.add(new GasSource(
-                    curtain.medium(), new GasShape.Cylinder(fall.width() / 2F + curtain.margin(), fall.drop()), x, landing, z, curtain.rate() * share)));
+                    new GasSource(spray.medium(), spray.shape(), x, spray.shape().standingOn(landing), z, spray.rate() * share, spray.rise())));
+            falls.curtain().ifPresent(curtain -> found.add(new GasSource(curtain.medium(), new GasShape.Cylinder(fall.width() / 2F + curtain.margin(), fall.drop()),
+                    x, landing, z, curtain.rate() * share, curtain.rise())));
         }
     }
 
@@ -223,7 +227,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
     private static void fromSprings(GasSettings.Source springs, CellDiscs discs, float surfaceRate, List<GasSource> found) {
         for (DiscFalls.Spring spring : discs.falls().springs()) {
             found.add(new GasSource(springs.medium(), springs.shape(), spring.x() + 0.5, springs.shape().standingOn(spring.level() + 1), spring.z() + 0.5,
-                    springs.rate() * rateOn(discs, spring.disc(), surfaceRate)));
+                    springs.rate() * rateOn(discs, spring.disc(), surfaceRate), springs.rise()));
         }
     }
 
@@ -241,7 +245,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
                 for (int z = fromZ; z <= toZ; z++) {
                     if (Math.hypot(x + 0.5 - cell.centreX(), z + 0.5 - cell.centreZ()) <= radius
                             && RavineCells.unitAt(cell.hash(), CAVERN_HASH_BASE + e, x, z) * spread.every() < 1) {
-                        found.add(new GasSource(spread.medium(), spread.shape(), x + 0.5, y, z + 0.5, spread.rate()));
+                        found.add(new GasSource(spread.medium(), spread.shape(), x + 0.5, y, z + 0.5, spread.rate(), spread.rise()));
                     }
                 }
             }

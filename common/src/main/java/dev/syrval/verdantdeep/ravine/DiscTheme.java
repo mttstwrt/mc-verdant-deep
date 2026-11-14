@@ -272,9 +272,11 @@ public record DiscTheme(
      * block, in the open beside it, so what sinks pours over the edge. Growths and gas with patches of the same size share them.
      *
      * @param medium the gas, by its id among the gas library's media; an id that library does not know gives off nothing
-     * @param rate   density each cell of the shape gains per second, as the library counts it
+     * @param rate   density each cell of the shape gains per second, as the library counts it (1 is pure gas)
+     * @param rise   blocks per second the gas leaves the shape with, upwards (negative down); 0 by default
      */
-    public record Gas(ResourceLocation medium, int every, Surface on, Optional<Patches> patches, Optional<RimFade> rimFade, GasShape shape, float rate) {
+    public record Gas(ResourceLocation medium, int every, Surface on, Optional<Patches> patches, Optional<RimFade> rimFade, GasShape shape, float rate,
+                      float rise) {
         static final Codec<Gas> CODEC = RecordCodecBuilder.<Gas>create(i -> i.group(
                 ResourceLocation.CODEC.fieldOf("medium").forGetter(Gas::medium),
                 Codec.intRange(1, Growth.MOST_EVERY).fieldOf("every").forGetter(Gas::every),
@@ -282,7 +284,8 @@ public record DiscTheme(
                 Patches.CODEC.optionalFieldOf("patches").forGetter(Gas::patches),
                 RimFade.CODEC.optionalFieldOf("rim_fade").forGetter(Gas::rimFade),
                 GasShape.CODEC.fieldOf("shape").forGetter(Gas::shape),
-                Codec.floatRange(0, GasSettings.MOST_RATE).fieldOf("rate").forGetter(Gas::rate)
+                Codec.floatRange(0, GasSettings.MOST_RATE).fieldOf("rate").forGetter(Gas::rate),
+                GasSettings.RISE.optionalFieldOf("rise", 0F).forGetter(Gas::rise)
         ).apply(i, Gas::new)).validate(Gas::validate);
 
         private static DataResult<Gas> validate(Gas gas) {

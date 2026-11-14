@@ -34,11 +34,11 @@ versionRange = "[13.0.0,)"
 ordering = "AFTER"
 side = "BOTH"
 
-# Draws the holes' gas when present, on the server and on the client.
+# The holes' gas: placed by the server, sent and drawn by the library, so needed on both sides. 0.x breaks at each minor.
 [[dependencies.verdant_deep]]
 modId = "volumetrics"
-type = "optional"
-versionRange = "[0,)"
+type = "required"
+versionRange = "[0.1.0,0.2)"
 ordering = "NONE"
 side = "BOTH"
 

@@ -47,7 +47,7 @@ Layers, mapped to code:
 | Wall ruins (later) | Jigsaw structures anchored on ledges | JSON in `common` | Yes |
 | Disc ruins | Custom `verdant_deep:disc_ruins` structure and placement: one piece of a template pool at each place the discs' own code finds for a ruin | Sites in `common/…/ravine`, structure and placement in `common/…/compat`, pools and processors in JSON | Yes |
 | Roots | Winding wooden roots grown once for each hole and written into each chunk with the discs' materials; a block tag keeps the mod's structures from building over them | Growing and blocks in `common/…/ravine`, written by `compat/DiscPainter`, numbers and the tag in JSON | Yes |
-| Gas | A haze through each hole, and mist, spray, cavern mist, bog, ember and shimmer from each disc theme's surfaces, the falls, springs and cavern floor, drawn by the owner's gas library (Volumetrics) when it is installed | Sources and the haze worked out in `common/…/ravine` (`HoleGas`); sent by `compat/GasTicker` and `HoleGasPayload`; drawn by `compat/client/VolumetricsGas`, the one class that imports the library; media, sources and the haze in JSON | Yes (optional dependency) |
+| Gas | A haze through each hole, and mist, spray, cavern mist, bog, ember and shimmer from each disc theme's surfaces, the falls, springs and cavern floor, placed by the server through the owner's gas library (Volumetrics), which sends and draws it | Sources, pulls and the haze worked out in `common/…/ravine` (`HoleGas`); turned into the library's v2 inputs by `compat/HoleGasInputs` and placed chunk by chunk as chunks load by `compat/HoleGasRule`, the library's placement rule; media, sources and the haze in JSON | Yes (required dependency) |
 
 Custom Java is limited to: density-function type(s), a structure-placement type, the fluid-override mixin, the
 density-wrap mixin, and the `BiomeInjector` glue. Everything else is data.
@@ -3113,6 +3113,33 @@ mouth, and the land round the mouth has none on it; with gas turned off the same
 dev client first had to be made to start with the library at all: `VolumetricsGas` joined two of its types in one switch,
 which Architectury's transformer could not resolve there. How thick the haze is, and how bright by day, is the owner's to
 judge; the kit's report for the goal (`.agent/reports/`) has the stills.
+
+### Gas placed by the server through the library's v2 API (2026-11-11, VOL-082)
+
+The library's v2 API (`plan/research/vol-api-v2.md` in the kit) lets a server place sources, forces and fields and sends
+them to its players itself, and the owner decided (D7, 2026-11-09) that this mod requires the library. So the mod's own
+gas payload and the optional-presence indirection are gone:
+
+- Removed: `compat/GasTicker` (each player's holes worked out twice a second and sent), `compat/HoleGasPayload`,
+  `compat/client/VolumetricsGas`, `GasDrawer` and `HoleGasReceiver`, the `isModLoaded` guard, and the payload's test.
+- `compat/HoleGasRule` (2026-11-12, VOL-082 2e; was `HoleGasPlacer` with a chunk-load event in each loader): the
+  library's code-tier placement rule (`owner.registerPlacementRule`, a server rule, registered in `VerdantDeep.init`).
+  The library calls it for each chunk of a server level that loads; the hole of the chunk's cell gives the chunk its
+  share of the gas, which the library scopes to the chunk, sends to the players tracking it and ends as it unloads. A
+  hole is worked out once, off the server thread, the first time a chunk of its cell loads; its chunks that load
+  meanwhile hand the library that work to wait for (`out.later`), and get their share once it is done if they are still
+  loaded. A level whose terrain has no ravine carve gets no placer at all. No loader event, no lifecycle hook, nothing
+  ticks.
+- `compat/HoleGasInputs`: a hole's `HoleGas` as v2 inputs by chunk. A source per place, as before, with sources of equal
+  definition sharing one instance; in place of the zero-rate emitters with a flow, one `toward` force per disc that gives
+  off gas, anchored on the hole's axis with its region over the disc and scoped to the disc's chunk (the library was
+  changed to send a chunk-scoped input to the players tracking its scope's chunk); the haze as a drawn placed field,
+  `inside(cone) × exponential`, scoped to the chunk of the hole's middle.
+- A source may `rise` (data, blocks per second, 0 by default); the falls' spray rises at 1.
+- The media moved to the v2 format, kept as they looked: see `docs/TUNING.md`, Gas, for the numbers and what is a first
+  guess.
+- Not done here: conversion of one medium into another (VOL-082 step 3), and with it warm discs giving off steam that
+  cools into mist; each medium still has its own sources. The mod never had a wind of its own to make a `level_wind`.
 
 ## 8. Next steps
 

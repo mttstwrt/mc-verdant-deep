@@ -1,12 +1,21 @@
 {
-  "simulation": { "gravity": 0.2, "dispersion": 2.0, "decay": 0.12, "max_density": 0.35, "wind_response": 0.5, "draft": { "speed": 0.4, "period": 60 } },
-  "appearance": {
-    "color": "#E6EEF0",
-    "opacity": 0.12,
-    "sky_light": 1.0,
-    "block_light": 0.8,
-    "emissive": 0.05,
-    "forward_scatter": 0.9,
-    "noise": { "scale": 0.18, "speed": 0.7, "strength": 0.7 }
+  "_note": "VOL-082 retune from the v1 file. First guesses, to tune live with /volumetrics tune medium verdant_deep:spray <path> <value> and copy back here: optics.phase (from the dead forward_scatter 0.9). Kept from v1: extinction is v1 opacity 0.12 x v1 max_density 0.35, because the engine now holds up to density 1 and this gas's sources give 1/0.35 of their v1 rate in carve.json, which together look as v1 did.",
+  "motion": {
+    "diffusion": 2.0,
+    "decay": 0.12,
+    "drift": { "y": -0.2 },
+    "draft": { "speed": 0.4, "period": 60 },
+    "response": { "wind": 0.5 }
+  },
+  "optics": {
+    "extinction": 0.042,
+    "albedo": "#E6EEF0",
+    "phase": { "forward": 0.7, "back": -0.35, "blend": 0.25 },
+    "emission": { "strength": 0.05 },
+    "ambient": 1.0,
+    "lamps": 0.8
+  },
+  "detail": {
+    "wisps": { "scale": 0.18, "speed": 0.7, "strength": 0.7 }
   }
 }

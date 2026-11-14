@@ -1,12 +1,15 @@
 {
-  "simulation": { "gravity": 0.0, "dispersion": 0.5, "decay": 0.1 },
-  "appearance": {
-    "color": "#B4C6BE",
-    "opacity": 1.0,
-    "sky_light": 1.0,
-    "block_light": 0.7,
-    "emissive": 0.06,
-    "forward_scatter": 0.6,
-    "noise": { "scale": 0.04, "speed": 0.15, "strength": 0.35 }
+  "_note": "VOL-082 retune from the v1 file. First guesses, to tune live with /volumetrics tune medium verdant_deep:haze <path> <value> and copy back here: optics.phase (from the dead forward_scatter 0.6). Everything else is v1's, renamed.",
+  "motion": { "diffusion": 0.5, "decay": 0.1 },
+  "optics": {
+    "extinction": 1.0,
+    "albedo": "#B4C6BE",
+    "phase": { "forward": 0.55, "back": -0.275, "blend": 0.25 },
+    "emission": { "strength": 0.06 },
+    "ambient": 1.0,
+    "lamps": 0.7
+  },
+  "detail": {
+    "wisps": { "scale": 0.04, "speed": 0.15, "strength": 0.35 }
   }
 }

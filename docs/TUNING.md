@@ -407,26 +407,36 @@ more. For the roots, the same of their bark, outside the middle of the hole wher
 Gas needs the gas library, Volumetrics, on the server and the client (`docs/SETTINGS.md`, Gas). In game,
 `/volumetrics stats` shows what it costs, and `/volumetrics enabled false` turns it off to compare. The kinds are files of
 their own in `data/verdant_deep/volumetrics/medium/`. Where they come from is in `carve.json`: a theme's `gas`, and
-`gas` at the top. Restart the world after a change: the library reads its media when a world loads, and the mod works a
-hole's gas out once.
+`gas` at the top. A medium can be tuned live, as an operator: `/volumetrics tune medium verdant_deep:mist optics.extinction
+0.04` changes it on the server and every client at once, `/volumetrics tune save` keeps it in the server's config, and the
+numbers that look right belong back in the medium's file. A change to `carve.json` needs a restart: the mod works a hole's
+gas out once.
+
+The media were moved to the library's v2 format on 2026-11-11 (VOL-082) and kept as they looked, as far as the numbers
+allow. The engine now lets a cell hold density up to 1 where each medium had its own `max_density`, so a medium that had one
+has its `extinction` that much lower (v1 `opacity` × `max_density`) and its sources' rates in `carve.json` that much higher
+(÷ `max_density`), which looks the same. Still first guesses, to judge in game: each `optics.phase`, made from the v1
+`forward_scatter` that the library had stopped reading (`forward` = 0.25 + forward_scatter / 2, `back` = -forward / 2,
+`blend` 0.25; every medium was drawn at 0.5 until then), and the spray's `rise` 1. Each file's `_note` says the same.
 
 | Kind | Where, as shipped | Its look, and the lever |
 |---|---|---|
-| `haze` | a fog through the whole hole (`gas.fog`) | grey-green, as thick as `bottom_density` 0.022 at the floor and `top_density` 0.004 at the top; `opacity` 1. Its `emissive` 0.06 keeps it from going black in the dark; `forward_scatter` 0.6 makes it glow looking up at the sun |
-| `mist` | lush top in patches, under the disc and over the rim; jungle top in patches and over its water; springs | pale, sinking (`gravity` 0.5), thinning by `decay` 0.05. Up `decay` for less of it far from where it comes from; `opacity` for thicker |
-| `spray` | where each fall lands, and up its drop | white, light (`gravity` 0.2), spreading fast (`dispersion` 2) and short-lived (`decay` 0.12); glows towards the sun (`forward_scatter` 0.9) |
-| `cavern_mist` | the cavern floor | a heavier mist (`gravity` 1, `max_density` 0.4) that lies over the city |
-| `bog` | mangrove top, ponds and underside | green and heavy (`gravity` 2): it lies on mud and drips off. `opacity` 0.55 |
-| `ember` | nothing: the lava disc gives off no smoke (removed 2026-10-19), the medium is kept | rises (`gravity` -1.5) and fades fast (`decay` 0.12) |
-| `shimmer` | nothing: the crystal discs give off no gas (removed 2026-10-19), the medium is kept | faint violet, glowing of itself (`emissive` 0.35), short-lived (`decay` 0.15) |
+| `haze` | a fog through the whole hole (`gas.fog`) | grey-green, as thick as `bottom_density` 0.022 at the floor and `top_density` 0.004 at the top; `extinction` 1. Its `emission` 0.06 keeps it from going black in the dark; `phase` forward 0.55 makes it glow looking up at the sun |
+| `mist` | lush top in patches, under the disc and over the rim; jungle top in patches and over its water; springs | pale, sinking (`drift.y` -0.5), thinning by `decay` 0.05. Up `decay` for less of it far from where it comes from; `extinction` (0.0315) for thicker |
+| `spray` | where each fall lands, rising off the water (`rise` 1), and up its drop | white, light (`drift.y` -0.2), spreading fast (`diffusion` 2) and short-lived (`decay` 0.12); glows towards the sun (`phase` forward 0.7) |
+| `cavern_mist` | the cavern floor | a heavier mist (`drift.y` -1, `extinction` 0.048) that lies over the city |
+| `bog` | mangrove top, ponds and underside | green and heavy (`drift.y` -2): it lies on mud and drips off. `extinction` 0.022 |
+| `ember` | nothing: the lava disc gives off no smoke (removed 2026-10-19), the medium is kept | rises (`drift.y` 1.5) and fades fast (`decay` 0.12) |
+| `shimmer` | nothing: the crystal discs give off no gas (removed 2026-10-19), the medium is kept | faint violet, glowing of itself (`emission` 0.35), short-lived (`decay` 0.15) |
 
 - How much of a kind there is: a source's `rate`, and how many there are, `every`. Halving `every` doubles the sources.
 - How it wanders: `draft` (`speed` in blocks per second, `period` in seconds between headings): spray 0.4 / 60, mist
   0.3 / 90, cavern mist 0.2 / 120, bog 0.15 / 150. One heading per kind at a time, so all the mist of a hole goes the
-  same way; gas that runs to the hole's middle waits for G-022 in the library. `wind_response` (spray 0.5, mist 0.3,
-  bog 0.1, cavern mist 0) keeps a server's wind, once a mod gives one, out of the deep: there is none without it.
-- Gas is dark where the discs are dark, as blocks are. `emissive` is the lever for gas that should show in the dark. Mist
-  is already lit by glow berries and lights inside leaves, through `block_light` 0.8.
+  same way. Over each disc that gives off gas, its gas drifts toward the hole's axis (a `toward` pull, 1.5 blocks a
+  second; `compat/HoleGasInputs`). `response.wind` (spray 0.5, mist 0.3, bog 0.1, cavern mist 0) keeps a server's wind,
+  once a mod gives one, out of the deep: there is none without it.
+- Gas is dark where the discs are dark, as blocks are. `emission.strength` is the lever for gas that should show in the
+  dark. Mist is already lit by glow berries and lights inside leaves, through `lamps` 0.8.
 - Leaves stop gas, so mist on a jungle disc lies under the canopy.
 - The library holds 32 kinds at once near the camera, other mods' gas included, so a use that wants its own look gets a
   medium of its own: copy one, rename it, and point the source at it.
@@ -439,7 +449,7 @@ hole's gas out once.
 - The surface (2026-11-02): `gas.fog.above_entrance` 16 ends the haze just over the entrance bowl's join, so the shelves
   above it stand in clear air; up keeps more haze among the shelves, and leaving it out takes the haze to the lip as
   before. `gas.surface_rate` 0.4 thins every source on a surface disc, falls and springs included; 1 is as underground.
-- How many sources a hole has, of the 4096 it may send: 2,300 to 3,200 in the eight holes of seed 11 counted (cells 0,0 to
+- How many sources a hole has, of the 4096 it may place: 2,300 to 3,200 in the eight holes of seed 11 counted (cells 0,0 to
   0,7, outside the game), each worked out in 30 to 70 ms. About half is mist, and up to a third bog. The mangrove's bog
   was thinned to that from 2,500 to 3,700 (ponds `every` 50 to 90, top 120 to 160) to leave room under the cap.
 
