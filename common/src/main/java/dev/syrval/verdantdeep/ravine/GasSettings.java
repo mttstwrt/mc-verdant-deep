@@ -44,7 +44,7 @@ public record GasSettings(Optional<Fog> fog, Optional<Falls> falls, Optional<Sou
 
     /** Random fog over underground discs; dense draws become more likely towards the hole's floor. */
     public record DiscFog(ResourceLocation medium, ResourceLocation denseMedium, float minDensity, float maxDensity,
-                          float denseDensity, float shallowChance, float deepChance, float height) {
+                          float denseDensity, float shallowChance, float deepChance, float height, Optional<SharpFog> sharp) {
         static final Codec<DiscFog> CODEC = RecordCodecBuilder.create(i -> i.group(
                 ResourceLocation.CODEC.fieldOf("medium").forGetter(DiscFog::medium),
                 ResourceLocation.CODEC.fieldOf("dense_medium").forGetter(DiscFog::denseMedium),
@@ -53,8 +53,17 @@ public record GasSettings(Optional<Fog> fog, Optional<Falls> falls, Optional<Sou
                 Codec.floatRange(0, MOST_DENSITY).fieldOf("dense_density").forGetter(DiscFog::denseDensity),
                 Codec.floatRange(0, 1).fieldOf("shallow_chance").forGetter(DiscFog::shallowChance),
                 Codec.floatRange(0, 1).fieldOf("deep_chance").forGetter(DiscFog::deepChance),
-                Codec.floatRange(1, 32).fieldOf("height").forGetter(DiscFog::height)
+                Codec.floatRange(1, 32).fieldOf("height").forGetter(DiscFog::height),
+                SharpFog.CODEC.optionalFieldOf("sharp").forGetter(DiscFog::sharp)
         ).apply(i, DiscFog::new));
+    }
+
+    /** A share of the dense draws use a separate medium and a narrower shape fringe. */
+    public record SharpFog(ResourceLocation medium, float chance) {
+        static final Codec<SharpFog> CODEC = RecordCodecBuilder.create(i -> i.group(
+                ResourceLocation.CODEC.fieldOf("medium").forGetter(SharpFog::medium),
+                Codec.floatRange(0, 1).fieldOf("chance").forGetter(SharpFog::chance)
+        ).apply(i, SharpFog::new));
     }
 
     /**

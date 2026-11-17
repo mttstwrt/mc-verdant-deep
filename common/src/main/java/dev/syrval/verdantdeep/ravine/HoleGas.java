@@ -38,6 +38,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
     // Hash indices kept apart for this many gas entries per theme.
     private static final int MAX_GASES = 64;
     private static final int DISC_FOG_HASH_BASE = 2_200_000;
+    private static final int SHARP_FOG_HASH_BASE = 2_201_000;
     private static final int CAVERN_HASH_BASE = 2_100_000;
     private static final int CHUNK_SIZE = 16;
     // Sources on the cavern's floor keep this share of its radius in, clear of the wall's bumps.
@@ -78,7 +79,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
     private static void fromDiscFog(GasSettings.DiscFog fog, RavineBounds bounds, RavineCell cell, CellDiscs discs, List<GasFog> found) {
         for (int i = 0; i < discs.layout().discs().size() && found.size() < MAX_FOGS; i++) {
             Disc disc = discs.layout().discs().get(i);
-            if (discs.layout().isSurface(disc)) {
+            if (discs.layout().isSurface(disc) || discs.themes().get(i).filter(DiscTheme::holdsLava).isPresent()) {
                 continue;
             }
             double depth = Math.clamp((bounds.topY() - disc.floor()) / (double) Math.max(1, bounds.topY() - bounds.floorY()), 0, 1);
@@ -88,8 +89,17 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
             float density = dense ? fog.denseDensity() * (float) (0.7 + 0.3 * draw)
                     : (float) (fog.minDensity() + draw * (fog.maxDensity() - fog.minDensity()));
             float radius = (float) disc.radius();
-            found.add(new GasFog(dense ? fog.denseMedium() : fog.medium(), disc.x(), disc.floor() - 1, disc.z(),
-                    radius, radius, fog.height(), density, 0, Math.min(3, Math.min(radius / 3, fog.height() / 3))));
+            ResourceLocation medium = dense ? fog.denseMedium() : fog.medium();
+            float fringe = 3;
+            if (dense && fog.sharp().isPresent()) {
+                GasSettings.SharpFog sharp = fog.sharp().get();
+                if (RavineCells.unit(cell.hash(), SHARP_FOG_HASH_BASE + i) < sharp.chance()) {
+                    medium = sharp.medium();
+                    fringe = 0.75F;
+                }
+            }
+            found.add(new GasFog(medium, disc.x(), disc.floor() - 1, disc.z(), radius, radius, fog.height(), density, 0,
+                    Math.min(fringe, Math.min(radius / 3, fog.height() / 3))));
         }
     }
 

@@ -3831,7 +3831,8 @@
       "dense_density": 0.85,
       "shallow_chance": 0.08,
       "deep_chance": 0.45,
-      "height": 9
+      "height": 9,
+      "sharp": { "medium": "verdant_deep:sharp_mist", "chance": 0.25 }
     }
   },
   "sun": {

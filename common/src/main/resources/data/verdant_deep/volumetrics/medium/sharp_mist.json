@@ -1,0 +1,16 @@
+{
+  "_note": "Extra dense disc fog. A narrow field fringe and the puffy edge keep the bank distinct. The Volumetrics froxel_edges experiment can sharpen its outline further.",
+  "motion": { "diffusion": 0 },
+  "optics": {
+    "extinction": 0.34,
+    "albedo": "#D8E4E0",
+    "phase": { "forward": 0.5, "back": -0.25, "blend": 0.25 },
+    "emission": { "strength": 0.04 },
+    "ambient": 1.0,
+    "lamps": 0.8
+  },
+  "detail": {
+    "edge": "volumetrics:puffy",
+    "wisps": { "scale": 0.1, "speed": 0.15, "strength": 0.25 }
+  }
+}
