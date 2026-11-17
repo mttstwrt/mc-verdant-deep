@@ -708,7 +708,7 @@ and draws it on their clients. The library is required on the server and the cli
 by it.
 
 The kinds are the library's media, in `data/verdant_deep/volumetrics/medium/`: `haze`, `mist`, `spray`, `cavern_mist`,
-`bog`, `ember` and `shimmer`. A medium is how the gas moves (`motion`: `diffusion`, `decay`, `drift.y` up or negative to
+`bog`, `ember`, `shimmer` and `dense_mist`. A medium is how the gas moves (`motion`: `diffusion`, `decay`, `drift.y` up or negative to
 sink, `draft`, `response.wind`) and how it meets light (`optics`: `extinction` per block at density 1, `albedo`, `phase`,
 `emission`, `ambient` for daylight and `lamps` for light sources), all as the library's own SCOPE has them. Density 1 is
 pure gas and the most a cell holds. The library holds up to 32 kinds at once near the camera, so a use that wants a look
@@ -749,10 +749,24 @@ library takes it away again when the chunk unloads.
   - `surface_rate` 0.4 (1 if left out): the share of their `rate` that sources on a surface disc give: its theme's gas, the
     spray and curtain of a fall that leaves it, and a spring's over it. Gas reads stronger in daylight.
 
-Over each disc whose theme gives off gas, that gas drifts toward the hole's axis at 1.5 blocks a second, from a block under
+Over each disc whose theme gives off gas, that gas drifts toward the hole's axis at `gas.pull_speed` (shipped: 0.4 blocks a second), from a block under
 the platform to 8 above it and 6 blocks round it (code, `compat/HoleGasInputs`).
 
 A hole places at most 4096 sources. Past that the themes' last ones are left out, and the log says so once for the hole.
+Every underground disc also has a local, drawn fog layer (`gas.disc_fog`); surface discs are excluded.
+Its density is drawn independently per disc between `min_density` (0.03) and `max_density` (0.3).
+A separate draw selects `dense_medium` (`verdant_deep:dense_mist`) instead of `medium` (`verdant_deep:mist`),
+with chance interpolated from `shallow_chance` (0.08) at the lip to `deep_chance` (0.45) at the floor.
+Dense layers draw 70–100% of `dense_density` (0.85). Every layer is `height` (9) blocks tall,
+thins upwards to zero and fades at its edges. Draws use the world seed and disc index, so revisiting a disc
+keeps its look. These are worldgen defaults in `carve.json`; omit `disc_fog` to disable the layers.
+They add no simulated emitters. Each layer belongs to its disc centre's chunk and disappears when that chunk unloads.
+The whole-hole haze still belongs to the hole centre's chunk.
+
+Tune the mist's appearance live with `/volumetrics tune medium verdant_deep:mist optics.extinction <value>`
+or `/volumetrics tune medium verdant_deep:dense_mist optics.extinction <value>`; the library's tuning commands
+also support saving and reloading media. The dense medium ships with extinction 0.18 (ordinary mist: 0.0315).
+
 The hole's own come first. The `haze` dial turns the fog's two densities, and at 0 takes it away; no other dial turns gas.
 
 ### Ruins

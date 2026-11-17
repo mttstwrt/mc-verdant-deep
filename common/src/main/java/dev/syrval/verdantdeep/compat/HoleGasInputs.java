@@ -54,9 +54,6 @@ import net.minecraft.world.phys.Vec3;
  */
 final class HoleGasInputs {
     static final HoleGasInputs NONE = new HoleGasInputs(new Long2ObjectOpenHashMap<>(), 0, 0, 0, 0);
-    // How fast the gas over a disc drifts toward its hole's axis, in blocks per second, and how far past the disc's region
-    // the pull still acts, in blocks: what the zero-rate emitters with a flow gave before v2.
-    private static final float PULL_SPEED = 1.5F;
     private static final float PULL_REACH = 6F;
     private static final float PULL_TAPER = 4F;
 
@@ -89,14 +86,14 @@ final class HoleGasInputs {
             // Measured from the anchor on the axis, at the height of the region's foot.
             Cylinder region = new Cylinder(new Vec3(flow.x() - hole.x(), 0, flow.z() - hole.z()), flow.height(), flow.radius());
             List<ResourceKey<Medium>> media = flow.media().stream().map(HoleGasInputs::medium).toList();
-            Force pull = new Force(new Toward(PULL_SPEED, region, PULL_REACH, PULL_TAPER), media);
+            Force pull = new Force(new Toward(flow.speed(), region, PULL_REACH, PULL_TAPER), media);
             chunks.computeIfAbsent(chunkOf(flow.x(), flow.z()), key -> new Building()).add(pull, Attachment.at(new Vec3(hole.x(), flow.y(), hole.z())));
         }
         int fogs = 0;
         for (GasFog fog : gas.fogs()) {
             if (fog.bottomDensity() > 0 || fog.topDensity() > 0) {
-                // Written where it is in the world, so it goes at the world's origin.
-                chunks.computeIfAbsent(chunkOf(hole.x(), hole.z()), key -> new Building()).add(hazeOf(fog), Attachment.at(Vec3.ZERO));
+                // The field uses world coordinates; its lifetime belongs to its centre chunk.
+                chunks.computeIfAbsent(chunkOf(fog.x(), fog.z()), key -> new Building()).add(hazeOf(fog), Attachment.at(Vec3.ZERO));
                 fogs++;
             }
         }

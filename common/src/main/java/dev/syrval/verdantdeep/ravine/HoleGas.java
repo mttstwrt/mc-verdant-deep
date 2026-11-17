@@ -28,7 +28,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
     /** The most sources one hole places. */
     public static final int MAX_SOURCES = 4096;
     /** The most fogs one hole places. */
-    public static final int MAX_FOGS = 4;
+    public static final int MAX_FOGS = 257;
     /** The most flow regions one hole places. */
     public static final int MAX_FLOWS = 256;
     // A flow region covers from this far under a disc's platform to this far above it.
@@ -37,6 +37,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
     private static final int GAS_HASH_BASE = 2_000_000;
     // Hash indices kept apart for this many gas entries per theme.
     private static final int MAX_GASES = 64;
+    private static final int DISC_FOG_HASH_BASE = 2_200_000;
     private static final int CAVERN_HASH_BASE = 2_100_000;
     private static final int CHUNK_SIZE = 16;
     // Sources on the cavern's floor keep this share of its radius in, clear of the wall's bumps.
@@ -61,19 +62,40 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
         float surfaceRate = settings.dressing().gas().map(GasSettings::surfaceRate).orElse(1F);
         settings.dressing().gas().ifPresent(gas -> {
             gas.fog().ifPresent(fog -> fogs.add(fromFog(settings, fog, bounds, cell)));
+            gas.discFog().ifPresent(fog -> fromDiscFog(fog, bounds, cell, discs, fogs));
             gas.falls().ifPresent(falls -> fromFalls(falls, discs, surfaceRate, found));
             gas.springs().ifPresent(springs -> fromSprings(springs, discs, surfaceRate, found));
             fromCavern(settings, gas.cavern(), bounds, cell, found);
         });
         fromThemes(settings, cell, discs, surfaceRate, found);
-        List<GasFlow> flows = flowsOf(discs);
+        List<GasFlow> flows = flowsOf(discs, settings.dressing().gas().map(GasSettings::pullSpeed).orElse(0.4F));
         int dropped = Math.max(0, found.size() - MAX_SOURCES);
         return new HoleGas(found.subList(0, found.size() - dropped), fogs, flows, dropped);
     }
 
+    // One drawn field per disc: no extra simulated gas cells or per-tick placement. Independent hashes keep the
+    // thickness and dense selection stable across reloads without changing terrain or theme draws.
+    private static void fromDiscFog(GasSettings.DiscFog fog, RavineBounds bounds, RavineCell cell, CellDiscs discs, List<GasFog> found) {
+        for (int i = 0; i < discs.layout().discs().size() && found.size() < MAX_FOGS; i++) {
+            Disc disc = discs.layout().discs().get(i);
+            if (discs.layout().isSurface(disc)) {
+                continue;
+            }
+            double depth = Math.clamp((bounds.topY() - disc.floor()) / (double) Math.max(1, bounds.topY() - bounds.floorY()), 0, 1);
+            double chance = fog.shallowChance() + depth * (fog.deepChance() - fog.shallowChance());
+            boolean dense = RavineCells.unit(cell.hash(), DISC_FOG_HASH_BASE + 2 * i) < chance;
+            double draw = RavineCells.unit(cell.hash(), DISC_FOG_HASH_BASE + 2 * i + 1);
+            float density = dense ? fog.denseDensity() * (float) (0.7 + 0.3 * draw)
+                    : (float) (fog.minDensity() + draw * (fog.maxDensity() - fog.minDensity()));
+            float radius = (float) disc.radius();
+            found.add(new GasFog(dense ? fog.denseMedium() : fog.medium(), disc.x(), disc.floor() - 1, disc.z(),
+                    radius, radius, fog.height(), density, 0, Math.min(3, Math.min(radius / 3, fog.height() / 3))));
+        }
+    }
+
     // One region for each disc whose theme gives off gas, moving those gases, standing from under the platform's top (its middle
     // is at `floor`) to above it.
-    private static List<GasFlow> flowsOf(CellDiscs discs) {
+    private static List<GasFlow> flowsOf(CellDiscs discs, float speed) {
         List<Disc> all = discs.layout().discs();
         List<GasFlow> flows = new ArrayList<>();
         for (int i = 0; i < all.size() && flows.size() < MAX_FLOWS; i++) {
@@ -82,7 +104,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
             discs.themes().get(i).ifPresent(theme -> theme.gas().forEach(gas -> media.add(gas.medium())));
             if (!media.isEmpty()) {
                 flows.add(new GasFlow(List.copyOf(media), disc.x(), disc.floor() - FLOW_BELOW, disc.z(), (float) disc.radius(),
-                        (float) (FLOW_BELOW + FLOW_ABOVE)));
+                        (float) (FLOW_BELOW + FLOW_ABOVE), speed));
             }
         }
         return flows;

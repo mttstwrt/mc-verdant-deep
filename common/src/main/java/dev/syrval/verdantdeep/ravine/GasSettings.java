@@ -11,6 +11,8 @@ import net.minecraft.resources.ResourceLocation;
  * where each fall lands and along its drop, where each spring's water comes down, and over the cavern's floor. Gas is named by
  * its id among the gas library's media. Each source may give a {@code rise}, as a theme's gas may (see {@link DiscTheme.Gas}).
  *
+ * @param pullSpeed inward drift in blocks per second
+ * @param discFog random localized fog over underground discs
  * @param fog     the haze that fills the hole's air
  * @param falls   gas at each fall
  * @param springs gas where each spring's water comes down on its disc, resting on the pool there
@@ -19,7 +21,7 @@ import net.minecraft.resources.ResourceLocation;
  *                theme's, a fall's that leaves it and a spring's over it. The surface is in daylight, where a thinner
  *                gas reads as much as a thicker one does underground; 1 leaves them as they are
  */
-public record GasSettings(Optional<Fog> fog, Optional<Falls> falls, Optional<Source> springs, List<Spread> cavern, float surfaceRate) {
+public record GasSettings(Optional<Fog> fog, Optional<Falls> falls, Optional<Source> springs, List<Spread> cavern, float surfaceRate, float pullSpeed, Optional<DiscFog> discFog) {
     /** The most density a source may give each cell a second, as the gas library allows. */
     static final float MOST_RATE = 64;
     /** The most density a fog may have, which is thicker than anything worth seeing through. */
@@ -31,11 +33,28 @@ public record GasSettings(Optional<Fog> fog, Optional<Falls> falls, Optional<Sou
             Falls.CODEC.optionalFieldOf("falls").forGetter(GasSettings::falls),
             Source.CODEC.optionalFieldOf("springs").forGetter(GasSettings::springs),
             Spread.CODEC.listOf().optionalFieldOf("cavern", List.of()).forGetter(GasSettings::cavern),
-            Codec.floatRange(0, 1).optionalFieldOf("surface_rate", 1F).forGetter(GasSettings::surfaceRate)
+            Codec.floatRange(0, 1).optionalFieldOf("surface_rate", 1F).forGetter(GasSettings::surfaceRate),
+            Codec.floatRange(0, 16).optionalFieldOf("pull_speed", 0.4F).forGetter(GasSettings::pullSpeed),
+            DiscFog.CODEC.optionalFieldOf("disc_fog").forGetter(GasSettings::discFog)
     ).apply(i, GasSettings::new));
 
     public GasSettings {
         cavern = List.copyOf(cavern);
+    }
+
+    /** Random fog over underground discs; dense draws become more likely towards the hole's floor. */
+    public record DiscFog(ResourceLocation medium, ResourceLocation denseMedium, float minDensity, float maxDensity,
+                          float denseDensity, float shallowChance, float deepChance, float height) {
+        static final Codec<DiscFog> CODEC = RecordCodecBuilder.create(i -> i.group(
+                ResourceLocation.CODEC.fieldOf("medium").forGetter(DiscFog::medium),
+                ResourceLocation.CODEC.fieldOf("dense_medium").forGetter(DiscFog::denseMedium),
+                Codec.floatRange(0, MOST_DENSITY).fieldOf("min_density").forGetter(DiscFog::minDensity),
+                Codec.floatRange(0, MOST_DENSITY).fieldOf("max_density").forGetter(DiscFog::maxDensity),
+                Codec.floatRange(0, MOST_DENSITY).fieldOf("dense_density").forGetter(DiscFog::denseDensity),
+                Codec.floatRange(0, 1).fieldOf("shallow_chance").forGetter(DiscFog::shallowChance),
+                Codec.floatRange(0, 1).fieldOf("deep_chance").forGetter(DiscFog::deepChance),
+                Codec.floatRange(1, 32).fieldOf("height").forGetter(DiscFog::height)
+        ).apply(i, DiscFog::new));
     }
 
     /**

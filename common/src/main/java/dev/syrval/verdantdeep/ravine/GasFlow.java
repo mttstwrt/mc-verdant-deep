@@ -9,7 +9,7 @@ import net.minecraft.resources.ResourceLocation;
  *
  * @param media the gases it moves, each once
  */
-public record GasFlow(List<ResourceLocation> media, double x, double y, double z, float radius, float height) {
+public record GasFlow(List<ResourceLocation> media, double x, double y, double z, float radius, float height, float speed) {
     public GasFlow {
         media = List.copyOf(media);
     }
