@@ -93,7 +93,7 @@ final class HoleGasInputs {
         for (GasFog fog : gas.fogs()) {
             if (fog.bottomDensity() > 0 || fog.topDensity() > 0) {
                 // The field uses world coordinates; its lifetime belongs to its centre chunk.
-                chunks.computeIfAbsent(chunkOf(fog.x(), fog.z()), key -> new Building()).add(hazeOf(fog), Attachment.at(Vec3.ZERO));
+                chunks.computeIfAbsent(chunkOf(fog.x(), fog.z()), key -> new Building()).add(fieldOf(fog), Attachment.at(Vec3.ZERO));
                 fogs++;
             }
         }
@@ -138,7 +138,7 @@ final class HoleGasInputs {
 
     // inside(the round shape, thinning over its edge) times its profile up the height, which the library draws in one step: by
     // the same share each block from the bottom density to the top one, or evenly where either is 0.
-    private static PlacedField hazeOf(GasFog fog) {
+    private static PlacedField fieldOf(GasFog fog) {
         float bottom = (float) fog.y();
         float top = bottom + fog.height();
         Field profile;
@@ -151,7 +151,10 @@ final class HoleGasInputs {
             profile = new Linear(Altitude.INSTANCE, bottom, top, fog.bottomDensity(), fog.topDensity());
         }
         Cylinder shape = new Cylinder(new Vec3(fog.x(), fog.y(), fog.z()), fog.height(), fog.bottomRadius(), fog.topRadius());
-        return PlacedField.drawn(medium(fog.medium()), new Mul(List.of(new Inside(shape, fog.edge()), profile)));
+        Field density = new Mul(List.of(new Inside(shape, fog.edge()), profile));
+        // Match the ground fog lineup sample's refill and dissipation rates.
+        return fog.simulated() ? PlacedField.simulated(medium(fog.medium()), density, 1F, 0.5F)
+                : PlacedField.drawn(medium(fog.medium()), density);
     }
 
     private static ResourceKey<Medium> medium(ResourceLocation id) {

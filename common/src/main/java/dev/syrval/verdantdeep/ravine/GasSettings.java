@@ -58,7 +58,7 @@ public record GasSettings(Optional<Fog> fog, Optional<Falls> falls, Optional<Sou
         ).apply(i, DiscFog::new));
     }
 
-    /** A share of the dense draws use a separate medium and a narrower shape fringe. */
+    /** A share of the dense draws use a simulated bank with a separate medium and a narrower fringe. */
     public record SharpFog(ResourceLocation medium, float chance) {
         static final Codec<SharpFog> CODEC = RecordCodecBuilder.create(i -> i.group(
                 ResourceLocation.CODEC.fieldOf("medium").forGetter(SharpFog::medium),

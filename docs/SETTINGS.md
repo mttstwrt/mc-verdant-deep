@@ -753,17 +753,20 @@ Over each disc whose theme gives off gas, that gas drifts toward the hole's axis
 the platform to 8 above it and 6 blocks round it (code, `compat/HoleGasInputs`).
 
 A hole places at most 4096 sources. Past that the themes' last ones are left out, and the log says so once for the hole.
-Underground discs other than lava themes have a local drawn fog layer (`gas.disc_fog`).
+Underground discs other than lava themes have a local fog layer (`gas.disc_fog`).
 Its density is drawn independently per disc between `min_density` (0.03) and `max_density` (0.3).
 A separate draw selects `dense_medium` (`verdant_deep:dense_mist`) instead of `medium` (`verdant_deep:mist`),
 with chance interpolated from `shallow_chance` (0.08) at the lip to `deep_chance` (0.45) at the floor.
 Dense layers draw 70–100% of `dense_density` (0.85). If `sharp` is present, its `chance` (0.25) is the share of
-dense draws that use its `medium` (`verdant_deep:sharp_mist`). Sharp mist uses the Volumetrics fog wall demo's extinction of 4.0
-and sharp edge profile (smooth preset, threshold 0.25, softness 0.04, fill 0.8), with a field fringe of at most 0.75 blocks. For sharper outlines with froxels, enable the optional client experiment
-`/volumetrics experiment froxel_edges on` in the bundled Volumetrics build. Every layer is `height` (9) blocks tall,
-thins upwards to zero and fades at its edges. Draws use the world seed and disc index, so revisiting a disc
-keeps its look. These are worldgen defaults in `carve.json`; omit `disc_fog` to disable the layers.
-They add no simulated emitters. Each layer belongs to its disc centre's chunk and disappears when that chunk unloads.
+dense draws that use its `medium` (`verdant_deep:sharp_mist`). That bank uses the Volumetrics ground fog demo's medium:
+extinction 1.0, diffusion 0.6, downward drift 1.5 blocks/s and the puffy edge preset. Near the player, the bank
+replenishes toward a density of 0.5 at the base with the demo's formation and dissipation rates (1 and 0.5 per second).
+The existing inward pull acts on the bank, so its gas can cross the lip and settle. At distance the library draws
+the bank's target shape. Ordinary fog and dense mist are drawn fields.
+
+Every layer is `height` (9) blocks tall, thins upwards to zero and fades at its edges. Its selection uses the world
+seed and disc index. These are worldgen defaults in `carve.json`. Omit `disc_fog` to disable the layers.
+Each layer belongs to its disc centre's chunk and disappears when that chunk unloads.
 The whole-hole haze still belongs to the hole centre's chunk.
 
 Tune the mist's appearance live with `/volumetrics tune medium verdant_deep:mist optics.extinction <value>`

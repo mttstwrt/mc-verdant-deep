@@ -1,16 +1,10 @@
 {
-  "_note": "Extra dense disc fog. Extinction and edge settings match the Volumetrics fog_wall demo. The Volumetrics froxel_edges experiment can sharpen its outline further.",
-  "motion": { "diffusion": 0 },
+  "_note": "Simulated disc bank using the Volumetrics ground fog lineup medium.",
+  "motion": { "diffusion": 0.6, "decay": 0.02, "drift": { "y": -1.5 } },
   "optics": {
-    "extinction": 4.0,
-    "albedo": "#D8E4E0",
-    "phase": { "forward": 0.5, "back": -0.25, "blend": 0.25 },
-    "emission": { "strength": 0.04 },
-    "ambient": 1.0,
-    "lamps": 0.8
+    "extinction": 1.0,
+    "albedo": "#E2E6EA",
+    "phase": { "forward": 0.5, "back": -0.25, "blend": 0.25 }
   },
-  "detail": {
-    "edge": { "preset": "volumetrics:smooth", "threshold": 0.25, "softness": 0.04, "fill": 0.8 },
-    "wisps": { "scale": 0.1, "speed": 0.2, "strength": 0.2 }
-  }
+  "detail": { "wisps": { "scale": 0.15, "speed": 0.3, "strength": 0.5 }, "edge": "volumetrics:puffy" }
 }
