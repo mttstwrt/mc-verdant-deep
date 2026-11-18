@@ -9,7 +9,7 @@ dev.syrval.volumetrics:volumetrics-neoforge:0.1.0+mc1.21.1   jar, POM: the NeoFo
 dev.syrval.volumetrics:volumetrics-fabric:0.1.0+mc1.21.1     jar, POM: the Fabric mod, for the dev runs
 ```
 
-Built from Volumetrics `main` at `51115e8` (VOL-096), from its 1.21.1 nodes. Where this file and the sources jar
+Built from Volumetrics `main` at `b58acb5` (VOL-035), from its 1.21.1 nodes. Where this file and the sources jar
 disagree, the sources jar wins. The library's spec is the kit's `plan/research/vol-api-v2.md`.
 
 ## How this mod takes it

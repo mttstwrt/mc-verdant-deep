@@ -761,7 +761,8 @@ Dense layers draw 70–100% of `dense_density` (0.85). If `sharp` is present, it
 dense draws that use its `medium` (`verdant_deep:sharp_mist`). That bank uses the Volumetrics ground fog demo's medium:
 extinction 1.0, diffusion 0.6, downward drift 1.5 blocks/s and the puffy edge preset. Near the player, the bank
 replenishes toward a density of 0.5 at the base with the demo's formation and dissipation rates (1 and 0.5 per second).
-The existing inward pull acts on the bank, so its gas can cross the lip and settle. At distance the library draws
+The existing inward pull acts on the bank, so its gas can cross the lip and settle. Flow detail at 0.6 rolls
+the mist’s pattern where the force carries it. At distance the library draws
 the bank's target shape. Ordinary fog and dense mist are drawn fields.
 
 Every layer is `height` (9) blocks tall, thins upwards to zero and fades at its edges. Its selection uses the world
