@@ -21,10 +21,6 @@ import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvi
  */
 public record DiscPalette(List<Layer> top, List<Layer> shade, List<Layer> underside, Optional<BlockStateProvider> body, Stem stem) {
     static final DiscPalette UNPAINTED = new DiscPalette(List.of(), List.of(), Optional.empty(), Stem.UNPAINTED);
-    private static final int SHADE_HASH_BASE = 2_400_000;
-    // Blocks across the patches by which the shade's ground reaches into the sun and the sun's into the shade.
-    private static final double SHADE_EDGE = 5;
-
 
     /** {@code thickness} blocks of one material. */
     public record Layer(int thickness, BlockStateProvider block) {
@@ -85,20 +81,9 @@ public record DiscPalette(List<Layer> top, List<Layer> shade, List<Layer> unders
         };
     }
 
-    /**
-     * Whether a column of the {@code index}-th disc of {@code layout} takes the shade's layers. Where the sun is partly there
-     * (see {@link SunSettings}) the two grounds meet in patches, the shade's taking as much of the ground as the sun lacks, so
-     * the floor turns from the one to the other over the same width as the growth does.
-     */
+    /** Whether a column of the {@code index}-th disc of {@code layout} takes the shade's layers (see {@link DiscLayout#shadedAt}). */
     boolean shadedAt(long hash, int index, DiscLayout layout, Disc disc, int x, int z) {
-        if (shade.isEmpty()) {
-            return false;
-        }
-        double sun = layout.sunAt(disc, x, z);
-        if (sun >= 1) {
-            return false;
-        }
-        return sun <= 0 || RavineCells.shareBelow(RavineCells.smoothOver(hash, SHADE_HASH_BASE + index, x, z, SHADE_EDGE)) >= sun;
+        return !shade.isEmpty() && layout.shadedAt(hash, index, disc, x, z);
     }
 
     /**

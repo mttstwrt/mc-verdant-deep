@@ -199,7 +199,11 @@ in its middle. Its numbers:
   have added to it.
   - Features: the parent's are grown on the disc by its own placement rules, with the disc's top as the ground. `stages` chooses
     which stages of decoration are grown (only `vegetal_decoration` unless given, which leaves out lakes, geodes, monster rooms,
-    ores and springs; an empty list grows none) and `without_features` names placed features to leave out.
+    ores and springs; an empty list grows none) and `without_features` names placed features to leave out. `sun_features`
+    names placed features that grow only on the sun's ground (see `light` below): where the disc's ground turns from the
+    sun's to the shade's in patches, they stop with it, so grass and flowers keep out of the domes. A patch feature is kept
+    or left by where it starts, so its edge may reach a few blocks into the shade. The jungle keeps its bamboo, warm flowers,
+    grass, sugar cane, pumpkins and melons to the sun; the mangrove its grass.
   - Spawns: the parent's, changed by the disc biome's own file. A mob listed under `spawners` in
     `data/verdant_deep/worldgen/biome/disc_*.json` is added, and replaces the parent's entry for the same mob in the same
     category (so a new weight or group size). `without_spawns` names mobs to leave out of what is inherited. The mod's own
@@ -588,8 +592,15 @@ Three settings keep a disc's plants from ending in a wall at its edge and from l
   elsewhere, so its `every` is still counted over the whole disc. Offline, over 40 holes, a sixth of the jungle discs'
   ground and an eighth of the mangroves' has the sun, and three jungle discs in five have some. Without `sun` in the file
   every column has the sun. What is marked:
-  - `sun`: the jungle's trees, bushes, bamboo and rim trees and all three of the mangrove's trees. The underground themes'
-    trees grow only on the side of a disc that faces the shaft.
+  - `sun`: the jungle's trees, bushes, bamboo, rim trees, ferns and grass (`jungle_undergrowth`) and azaleas
+    (`jungle_blooms`); all three of the mangrove's trees, its grass (`swamp_undergrowth`) and blue orchids. The underground
+    themes' trees grow only on the side of a disc that faces the shaft.
+  - `sun` and `shade` both, the same feature listed twice with a larger `every` in the shade, for lights that would
+    otherwise light the dome floors: berried vines under the discs (`glow_berries_hanging`, jungle 8 and 100, mangrove 16
+    and 120; `glow_berries_over_drop`, jungle 16 and 120, mangrove 24 and 72, lush 20 and 80), the jungle's lichen high up
+    (`glow_lichen_high`, 24 and 72), the mangrove's sea pickles (`sea_pickles`, 120 and 960; `sea_pickles_midpond`, 6 and
+    200), and the lush's moss ceilings, whose shade form (`moss_ceiling_shade`) hangs berried vines from 2% of the moss
+    instead of 8%.
   - `shade` (VRD-051), all of vanilla's blocks, for the domes the trees have left: more giant mushrooms (red on the jungle,
     brown on the mangrove), lichen under their caps (`cap_gills_lichen`, light 7) and, rarely, froglights in them
     (`cap_gills_froglight_pearlescent` on the jungle, `_ochre` on the mangrove, light 15, every 2500: a lamp to steer by);
@@ -598,11 +609,29 @@ Three settings keep a disc's plants from ending in a wall at its edge and from l
     in the ceiling (`weeping_curtain`, jungle); hanging roots from rooted dirt (`root_ceiling`, mangrove); beds of moss with
     small and medium amethyst buds (light 1 and 2) and pink petals (`bud_garden`, jungle and lush); and spore blossoms on
     the ceiling (`spore_blossom_ceiling`, all three). The gills and the tipped vines are in the `lights` dial.
-  - `/abyss light` (operators) measures the ground of the chasm the command is run in: for each theme, the share of its
+    Phase two, the floor and middle of a dome, by theme colour: thick low cover that gives no light (`shade_floor_crimson`
+    on the jungle, every 18: moss carpet, crimson roots and fungi, small dripleaf; `shade_floor_ochre` on the mangrove,
+    every 20: moss carpet, dead bushes, small dripleaf, a few brown mushrooms of light 1; `shade_floor_teal` on the lush,
+    every 40: warped roots and fungi, moss carpet, small dripleaf), groves of big dripleaf (`big_dripleaf_grove`, all
+    three) and twisting vines rising from the lush floor (`twisting_strands`). Tall growth is scattered: huge fungi of 4 to
+    13 blocks, now and then twice that (vanilla's `huge_fungus`), red-stemmed with nether wart hats that hang weeping vines
+    by themselves on the jungle (`fungus_crimson`, every 175), on mushroom stems with brown caps on the mangrove
+    (`fungus_ochre`, every 250) and warped on the lush (`fungus_teal`, every 450). A huge fungus grows only on one block,
+    which each theme names after what its shade ground has most of (mud on the jungle and mangrove, the lush's bare stone,
+    before moss covers it), so the real rate is lower than its `every`: on the jungle about a third. It starts only under
+    15 blocks of open air, and its stem replaces nothing a plant would not, so a low dome gets none rather than a hat
+    pressed into its ceiling. Each has a rare lamp form with froglights in its hat (`_lamp`, every 5000 to 7000, in the
+    `lights` dial as well as `giants`). The jungle's red mushrooms in the shade come every 700 now, not 450, with the
+    fungi standing beside them.  - `/abyss light` (operators) measures the ground of the chasm the command is run in: for each theme, the share of its
     columns in shade and in any sun at each block light, measured in the open block over the ground. Monsters spawn only at
     block light 0, so the shade's share at 0 is what keeps the domes dangerous. Only loaded chunks are measured; the first
     line says how many disc columns were left out for that, and how many have water or something taller than 4 blocks on
-    them. Run it from the console with `execute positioned <x> 64 <z> run abyss light`.
+    them. Run it from the console with `execute positioned <x> 64 <z> run abyss light`. For the shade it also says which
+    blocks light it, each with the share of the shade's columns it lights: a lit column is followed up the light to its
+    source, and berried vines and lichen say what they hang from (`glow_lichen under red_mushroom_block` is the gills,
+    `cave_vines_plant under moss_block` a moss ceiling's). Last, the shaded column nearest where it was run, to go and
+    look at. Seed 11, holes at (-336, -6720) and (-752, 8576), share of the shade at block light 0, first set → now:
+    jungle 59% / 64% → 69% / 76%, mangrove 44% / 54% → 71% / 74%, lush 71% / 79% → 84% / 79%.
   - Everything else grows in sun and shade alike.
 - `wildness` on a theme, `min` to `max`: each disc draws one number between them and grows that many times as much of
   everything in the theme's `growth`. What a disc inherits is not changed, so a disc at the low end is a glade in grass,

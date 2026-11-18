@@ -1,0 +1,83 @@
+{
+  "type": "minecraft:random_patch",
+  "config": {
+    "tries": 1,
+    "xz_spread": 0,
+    "y_spread": 0,
+    "feature": {
+      "feature": {
+        "type": "minecraft:huge_fungus",
+        "config": {
+          "valid_base_block": {
+            "Name": "minecraft:stone"
+          },
+          "stem_state": {
+            "Name": "minecraft:warped_stem",
+            "Properties": {
+              "axis": "y"
+            }
+          },
+          "hat_state": {
+            "Name": "minecraft:warped_wart_block"
+          },
+          "decor_state": {
+            "Name": "minecraft:verdant_froglight",
+            "Properties": {
+              "axis": "y"
+            }
+          },
+          "replaceable_blocks": {
+            "type": "minecraft:replaceable"
+          },
+          "planted": false
+        }
+      },
+      "placement": [
+        {
+          "type": "minecraft:block_predicate_filter",
+          "predicate": {
+            "type": "minecraft:all_of",
+            "predicates": [
+              {
+                "type": "minecraft:matching_blocks",
+                "blocks": "minecraft:air",
+                "offset": [
+                  0,
+                  4,
+                  0
+                ]
+              },
+              {
+                "type": "minecraft:matching_blocks",
+                "blocks": "minecraft:air",
+                "offset": [
+                  0,
+                  8,
+                  0
+                ]
+              },
+              {
+                "type": "minecraft:matching_blocks",
+                "blocks": "minecraft:air",
+                "offset": [
+                  0,
+                  12,
+                  0
+                ]
+              },
+              {
+                "type": "minecraft:matching_blocks",
+                "blocks": "minecraft:air",
+                "offset": [
+                  0,
+                  15,
+                  0
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

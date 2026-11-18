@@ -11,6 +11,9 @@ public interface DiscPlot {
     /** The first open block over the disc's top in this column, or empty where the column is not over the disc. */
     OptionalInt groundAt(int x, int z);
 
+    /** Whether a column lies in the sun's ground rather than the shade's (see {@code DiscLayout.shadedAt}). */
+    boolean isSunlit(int x, int z);
+
     /** Whether a block belongs to this disc: it is in the disc's space, and no higher disc's space holds it too. */
     boolean owns(int x, int y, int z);
 }

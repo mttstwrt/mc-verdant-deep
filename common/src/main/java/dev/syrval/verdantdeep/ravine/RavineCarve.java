@@ -414,18 +414,20 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
                 boolean inChunk = disc.x() + reach >= minX && disc.x() - reach <= minX + 15 && disc.z() + reach >= minZ && disc.z() - reach <= minZ + 15;
                 Optional<DiscTheme.Inherits> inherits = cellDiscs.themes().get(i).flatMap(DiscTheme::inherits);
                 if (inChunk && inherits.isPresent()) {
-                    sink.accept(inherits.get(), new Plot(cellDiscs, i));
+                    sink.accept(inherits.get(), new Plot(hole.cell().hash(), cellDiscs, i));
                 }
             }
         });
     }
 
     private final class Plot implements DiscPlot {
+        private final long hash;
         private final CellDiscs cellDiscs;
         private final int index;
         private final Disc disc;
 
-        Plot(CellDiscs cellDiscs, int index) {
+        Plot(long hash, CellDiscs cellDiscs, int index) {
+            this.hash = hash;
             this.cellDiscs = cellDiscs;
             this.index = index;
             this.disc = cellDiscs.layout().discs().get(index);
@@ -435,6 +437,11 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
         public OptionalInt groundAt(int x, int z) {
             double fromAxis = Math.hypot(x - disc.x(), z - disc.z());
             return fromAxis < disc.radius() ? OptionalInt.of(cellDiscs.grounds().get(index).topBlockAt(x, z) + 1) : OptionalInt.empty();
+        }
+
+        @Override
+        public boolean isSunlit(int x, int z) {
+            return !cellDiscs.layout().shadedAt(hash, index, disc, x, z);
         }
 
         @Override

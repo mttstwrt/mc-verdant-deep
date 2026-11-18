@@ -185,9 +185,10 @@ public final class DiscGrower {
                     if (feature.unwrapKey().filter(inherits.withoutFeatures()::contains).isPresent()) {
                         continue;
                     }
+                    boolean sunOnly = feature.unwrapKey().filter(inherits.sunFeatures()::contains).isPresent();
                     draws.setFeatureSeed(decorationSeed, plotIndex * FEATURES_PER_PLOT + featureIndex, stage.ordinal());
                     try {
-                        placeOnPlot(feature.value(), level, generator, draws, origin, plot);
+                        placeOnPlot(feature.value(), level, generator, draws, origin, plot, sunOnly);
                     } catch (RuntimeException e) {
                         // These features were written for open ground, some by other mods, and one may not cope with a
                         // disc. It is left out of this chunk, since an exception here would stop the chunk generating at all.
@@ -205,9 +206,11 @@ public final class DiscGrower {
      * Runs a placed feature the way vanilla does, with two changes. Its placement rules ask a {@link DiscPlacementContext} for
      * the ground, so they find the disc. And where a rule asks whether the biome at the place lists the feature, the answer
      * is whether the place is this disc's: the disc's own biome lists nothing, which is what keeps other biomes' features off
-     * it, so the usual question would turn away the very features the disc inherits.
+     * it, so the usual question would turn away the very features the disc inherits. A {@code sunOnly} feature is also kept
+     * off the shade's ground.
      */
-    private static void placeOnPlot(PlacedFeature placed, WorldGenLevel level, ChunkGenerator generator, WorldgenRandom draws, BlockPos origin, DiscPlot plot) {
+    private static void placeOnPlot(
+            PlacedFeature placed, WorldGenLevel level, ChunkGenerator generator, WorldgenRandom draws, BlockPos origin, DiscPlot plot, boolean sunOnly) {
         PlacementContext context = new DiscPlacementContext(level, generator, placed, plot);
         Stream<BlockPos> places = Stream.of(origin);
         for (PlacementModifier rule : placed.placement()) {
@@ -217,7 +220,8 @@ public final class DiscGrower {
         }
         ConfiguredFeature<?, ?> feature = placed.feature().value();
         // Asked again at the end, since a feature with no biome rule of its own would otherwise land anywhere in the chunk.
-        places.filter(pos -> plot.owns(pos.getX(), pos.getY(), pos.getZ())).forEach(pos -> feature.place(level, generator, draws, pos));
+        places.filter(pos -> plot.owns(pos.getX(), pos.getY(), pos.getZ()) && (!sunOnly || plot.isSunlit(pos.getX(), pos.getZ())))
+                .forEach(pos -> feature.place(level, generator, draws, pos));
     }
 
     // Places a feature where a disc's theme or a hole's roots grow one, if the place is still what it was reckoned to be.

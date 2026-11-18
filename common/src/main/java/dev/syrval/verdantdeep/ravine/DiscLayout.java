@@ -8,6 +8,9 @@ import java.util.List;
  * then only read, which makes it safe to share between worker threads.
  */
 interface DiscLayout {
+    int SHADE_HASH_BASE = 2_400_000;
+    // Blocks across the patches by which the shade's ground reaches into the sun and the sun's into the shade.
+    double SHADE_EDGE = 5;
 
     /** Every disc, in a fixed order, each with the support it has among the others. */
     List<Disc> discs();
@@ -23,6 +26,20 @@ interface DiscLayout {
      */
     default double sunAt(Disc disc, double x, double z) {
         return 1;
+    }
+
+    /**
+     * Whether a column of the {@code index}-th disc lies in the shade's ground rather than the sun's. Where the sun is partly
+     * there the two meet in patches, the shade's taking as much of the ground as the sun lacks, so the floor turns from the
+     * one to the other over the same width as the growth does. A disc's shade palette and its sun-only inherited features
+     * both follow this, so grass stops where the moss starts.
+     */
+    default boolean shadedAt(long hash, int index, Disc disc, int x, int z) {
+        double sun = sunAt(disc, x, z);
+        if (sun >= 1) {
+            return false;
+        }
+        return sun <= 0 || RavineCells.shareBelow(RavineCells.smoothOver(hash, SHADE_HASH_BASE + index, x, z, SHADE_EDGE)) >= sun;
     }
 
     /** The theme's volume; surface layouts can exclude the buried backs of wall-attached shelves. */

@@ -57,8 +57,33 @@
           "every": 300
         },
         {
+          "feature": "verdant_deep:disc/fungus_teal",
+          "every": 450,
+          "light": "shade"
+        },
+        {
+          "feature": "verdant_deep:disc/fungus_teal_lamp",
+          "every": 6000,
+          "light": "shade"
+        },
+        {
           "feature": "verdant_deep:disc/bud_garden",
           "every": 400,
+          "light": "shade"
+        },
+        {
+          "feature": "verdant_deep:disc/shade_floor_teal",
+          "every": 40,
+          "light": "shade"
+        },
+        {
+          "feature": "verdant_deep:disc/twisting_strands",
+          "every": 120,
+          "light": "shade"
+        },
+        {
+          "feature": "verdant_deep:disc/big_dripleaf_grove",
+          "every": 350,
           "light": "shade"
         },
         {
@@ -68,7 +93,13 @@
         },
         {
           "feature": "verdant_deep:disc/moss_ceiling",
-          "every": 55
+          "every": 55,
+          "light": "sun"
+        },
+        {
+          "feature": "verdant_deep:disc/moss_ceiling_shade",
+          "every": 55,
+          "light": "shade"
         },
         {
           "feature": "verdant_deep:disc/glow_lichen_high",
@@ -81,11 +112,25 @@
         {
           "feature": "verdant_deep:disc/moss_ceiling",
           "every": 55,
+          "light": "sun",
+          "on": "underside"
+        },
+        {
+          "feature": "verdant_deep:disc/moss_ceiling_shade",
+          "every": 55,
+          "light": "shade",
           "on": "underside"
         },
         {
           "feature": "verdant_deep:disc/glow_berries_over_drop",
           "every": 20,
+          "light": "sun",
+          "on": "underside"
+        },
+        {
+          "feature": "verdant_deep:disc/glow_berries_over_drop",
+          "every": 80,
+          "light": "shade",
           "on": "underside"
         },
         {
@@ -321,6 +366,14 @@
         "biome": "minecraft:jungle",
         "without_features": [
           "minecraft:trees_jungle"
+        ],
+        "sun_features": [
+          "minecraft:bamboo_light",
+          "minecraft:flower_warm",
+          "minecraft:patch_grass_jungle",
+          "minecraft:patch_sugar_cane",
+          "minecraft:patch_pumpkin",
+          "minecraft:patch_melon"
         ]
       },
       "weight": 4,
@@ -685,7 +738,7 @@
         },
         {
           "feature": "verdant_deep:disc/giant_mushroom_red",
-          "every": 450,
+          "every": 700,
           "light": "shade",
           "patches": {
             "size": 30,
@@ -693,8 +746,18 @@
           }
         },
         {
+          "feature": "verdant_deep:disc/fungus_crimson",
+          "every": 175,
+          "light": "shade"
+        },
+        {
+          "feature": "verdant_deep:disc/fungus_crimson_lamp",
+          "every": 5000,
+          "light": "shade"
+        },
+        {
           "feature": "verdant_deep:disc/cap_gills_lichen",
-          "every": 40,
+          "every": 90,
           "light": "shade",
           "patches": {
             "size": 30,
@@ -768,7 +831,8 @@
         },
         {
           "feature": "verdant_deep:disc/jungle_undergrowth",
-          "every": 25
+          "every": 25,
+          "light": "sun"
         },
         {
           "feature": "verdant_deep:disc/moss_carpet_patch",
@@ -776,7 +840,18 @@
         },
         {
           "feature": "verdant_deep:disc/jungle_blooms",
-          "every": 90
+          "every": 90,
+          "light": "sun"
+        },
+        {
+          "feature": "verdant_deep:disc/shade_floor_crimson",
+          "every": 18,
+          "light": "shade"
+        },
+        {
+          "feature": "verdant_deep:disc/big_dripleaf_grove",
+          "every": 300,
+          "light": "shade"
         },
         {
           "feature": "verdant_deep:disc/shroomlight_in_leaves",
@@ -797,6 +872,16 @@
         {
           "feature": "verdant_deep:disc/glow_lichen_high",
           "every": 24,
+          "light": "sun",
+          "patches": {
+            "size": 24,
+            "cover": 0.7
+          }
+        },
+        {
+          "feature": "verdant_deep:disc/glow_lichen_high",
+          "every": 72,
+          "light": "shade",
           "patches": {
             "size": 24,
             "cover": 0.7
@@ -805,11 +890,25 @@
         {
           "feature": "verdant_deep:disc/glow_berries_hanging",
           "every": 8,
+          "light": "sun",
+          "on": "underside"
+        },
+        {
+          "feature": "verdant_deep:disc/glow_berries_hanging",
+          "every": 100,
+          "light": "shade",
           "on": "underside"
         },
         {
           "feature": "verdant_deep:disc/glow_berries_over_drop",
           "every": 16,
+          "light": "sun",
+          "on": "underside"
+        },
+        {
+          "feature": "verdant_deep:disc/glow_berries_over_drop",
+          "every": 120,
+          "light": "shade",
           "on": "underside"
         },
         {
@@ -1111,6 +1210,9 @@
         "biome": "minecraft:mangrove_swamp",
         "without_features": [
           "minecraft:trees_mangrove"
+        ],
+        "sun_features": [
+          "minecraft:patch_grass_normal"
         ]
       },
       "weight": 3,
@@ -1289,6 +1391,16 @@
           }
         },
         {
+          "feature": "verdant_deep:disc/fungus_ochre",
+          "every": 250,
+          "light": "shade"
+        },
+        {
+          "feature": "verdant_deep:disc/fungus_ochre_lamp",
+          "every": 7000,
+          "light": "shade"
+        },
+        {
           "feature": "verdant_deep:disc/cap_gills_lichen",
           "every": 40,
           "light": "shade",
@@ -1374,7 +1486,8 @@
         },
         {
           "feature": "verdant_deep:disc/swamp_undergrowth",
-          "every": 30
+          "every": 30,
+          "light": "sun"
         },
         {
           "feature": "verdant_deep:disc/big_dripleaf",
@@ -1382,7 +1495,18 @@
         },
         {
           "feature": "verdant_deep:disc/swamp_flowers",
-          "every": 120
+          "every": 120,
+          "light": "sun"
+        },
+        {
+          "feature": "verdant_deep:disc/shade_floor_ochre",
+          "every": 20,
+          "light": "shade"
+        },
+        {
+          "feature": "verdant_deep:disc/big_dripleaf_grove",
+          "every": 400,
+          "light": "shade"
         },
         {
           "feature": "verdant_deep:disc/froglight_in_leaves",
@@ -1400,11 +1524,25 @@
         {
           "feature": "verdant_deep:disc/sea_pickles",
           "every": 120,
+          "light": "sun",
+          "on": "water"
+        },
+        {
+          "feature": "verdant_deep:disc/sea_pickles",
+          "every": 960,
+          "light": "shade",
           "on": "water"
         },
         {
           "feature": "verdant_deep:disc/sea_pickles_midpond",
           "every": 6,
+          "light": "sun",
+          "on": "water"
+        },
+        {
+          "feature": "verdant_deep:disc/sea_pickles_midpond",
+          "every": 200,
+          "light": "shade",
           "on": "water"
         },
         {
@@ -1430,6 +1568,17 @@
         {
           "feature": "verdant_deep:disc/glow_berries_hanging",
           "every": 16,
+          "light": "sun",
+          "on": "underside",
+          "patches": {
+            "size": 10,
+            "cover": 0.5
+          }
+        },
+        {
+          "feature": "verdant_deep:disc/glow_berries_hanging",
+          "every": 120,
+          "light": "shade",
           "on": "underside",
           "patches": {
             "size": 10,
@@ -1439,6 +1588,17 @@
         {
           "feature": "verdant_deep:disc/glow_berries_over_drop",
           "every": 24,
+          "light": "sun",
+          "on": "underside",
+          "patches": {
+            "size": 10,
+            "cover": 0.5
+          }
+        },
+        {
+          "feature": "verdant_deep:disc/glow_berries_over_drop",
+          "every": 72,
+          "light": "shade",
           "on": "underside",
           "patches": {
             "size": 10,

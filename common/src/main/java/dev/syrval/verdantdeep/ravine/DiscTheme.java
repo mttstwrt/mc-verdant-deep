@@ -151,16 +151,19 @@ public record DiscTheme(
      * @param stages          the stages of decoration whose features are grown; by default only vegetation, which leaves out
      *                        lakes, geodes, monster rooms, ores and springs
      * @param withoutFeatures placed features of those stages that are left out
+     * @param sunFeatures     placed features of those stages that grow only on the sun's ground (see {@code DiscLayout.shadedAt}):
+     *                        grass and flowers that would carpet a dome's floor as thickly as the open ground by the shaft
      * @param withoutSpawns   mobs that are left out of the spawns inherited, by id
      */
     public record Inherits(
             ResourceKey<Biome> biome, List<GenerationStep.Decoration> stages, List<ResourceKey<PlacedFeature>> withoutFeatures,
-            List<ResourceLocation> withoutSpawns) {
+            List<ResourceKey<PlacedFeature>> sunFeatures, List<ResourceLocation> withoutSpawns) {
         static final List<GenerationStep.Decoration> VEGETATION = List.of(GenerationStep.Decoration.VEGETAL_DECORATION);
         static final Codec<Inherits> CODEC = RecordCodecBuilder.create(i -> i.group(
                 ResourceKey.codec(Registries.BIOME).fieldOf("biome").forGetter(Inherits::biome),
                 GenerationStep.Decoration.CODEC.listOf().optionalFieldOf("stages", VEGETATION).forGetter(Inherits::stages),
                 ResourceKey.codec(Registries.PLACED_FEATURE).listOf().optionalFieldOf("without_features", List.of()).forGetter(Inherits::withoutFeatures),
+                ResourceKey.codec(Registries.PLACED_FEATURE).listOf().optionalFieldOf("sun_features", List.of()).forGetter(Inherits::sunFeatures),
                 // Ids rather than mobs, so that a pack naming another mod's mob still loads without that mod.
                 ResourceLocation.CODEC.listOf().optionalFieldOf("without_spawns", List.of()).forGetter(Inherits::withoutSpawns)
         ).apply(i, Inherits::new));
@@ -168,6 +171,7 @@ public record DiscTheme(
         public Inherits {
             stages = List.copyOf(stages);
             withoutFeatures = List.copyOf(withoutFeatures);
+            sunFeatures = List.copyOf(sunFeatures);
             withoutSpawns = List.copyOf(withoutSpawns);
         }
     }
