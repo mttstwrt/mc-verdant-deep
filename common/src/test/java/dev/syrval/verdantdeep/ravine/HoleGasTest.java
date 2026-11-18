@@ -33,7 +33,7 @@ class HoleGasTest {
         ConeDressing dressing = base.dressing();
         return new RavineSettings(base.salt(), base.cellSize(), 1F, base.sizeBias(), VerticalAnchor.absolute(-40), VerticalAnchor.absolute(80),
                 base.cavernRadius(), base.cavernHeight(), base.edgeFalloff(), base.discs(), List.of(theme), base.environment(), base.wallNoise(), base.ravine(),
-                base.cone(), new ConeDressing(dressing.roots(), dressing.falls(), dressing.curse(), Optional.empty(), dressing.sun()));
+                base.cone(), new ConeDressing(dressing.roots(), dressing.falls(), dressing.curse(), Optional.empty(), dressing.sun(), dressing.wallBowls()));
     }
 
     private static DiscTheme.Gas mist(DiscTheme.Surface on, int every, GasShape shape) {

@@ -744,6 +744,31 @@ to where it lands (leaves take the place of water, so a bush hung from a rim bes
 stays level by the water. To have none, take the block out or turn the `falls` dial to 0; for more, the dial or the block's
 `count`.
 
+### Wall bowls
+
+`wall_bowls` (optional, see `WallBowlSettings`, VRD-014) is what becomes of the terrain's water and lava where a hole's wall
+cuts into it: aquifers, lava pockets, underground lakes and vanilla's springs. Without the block the wall lets them pour into
+the hole as before. With it, each still block of the terrain's fluid beside the hole's open air (or below it) is a leak, leaks
+whose outlets lie within 2 blocks of each other are one outflow, and each outflow is either caught or plugged, once the chunk's
+decoration is done and before anything flows (`compat/WallBowls.java`):
+
+- Caught: an outflow of at least `min_leak` (3) blocks whose fluid falls clear down the wall gets a pool of the same fluid
+  `drop` (3 to 6) blocks under its lowest outlet, or up to `search` (12) blocks lower where that does not fit. The pool is
+  every block within `margin` (2) of a fall, so a row of falls down a wall gets a trough along it. It is held by a rim two
+  blocks high and a dish under it that thins out from the falls, both of the wall's own rock (the solid block most common
+  round the leaks) for water and of `lava_rock` (basalt, blackstone, smooth basalt) for lava; where the terrain's rock is
+  already there, it is the rim. Falling fluid that lands in still fluid does not spread, so the pool holds whatever runs.
+  Every block of the pool and its fall keeps `clearance` (3; lava `lava_clearance`, 6) from a disc's rock, a root and a
+  fall's water, and nothing lava sets alight lies within `fire_clearance` (3) of a lava pool or its fall. Vanilla's
+  decoration on the wall (dripstone, vines, plants, dirt) is built over; another bowl's water and block entities never are.
+  Columns of an outflow that land on the wall before the pool are plugged and the rest is caught.
+- Plugged: an outflow too small (a lone spring), too wide, or with no room for a bowl has its leaking blocks given the
+  wall's rock. So is fluid beside a cave of the terrain's within the hole's edge falloff (8 blocks) of its open air: such caves
+  often open into the hole, and where their water comes out is not known.
+
+The hole's own springs (`falls.springs`) are left to run. Seed 11, both holes: of 49 outflows, 20 caught, 6 with no room, 3
+landing on the wall, 11 single springs and 11 cave leaks plugged.
+
 ### Gas
 
 Gas is a haze through each hole, mist, spray at the falls, swamp breath, smoke off lava and a violet shimmer, placed by the

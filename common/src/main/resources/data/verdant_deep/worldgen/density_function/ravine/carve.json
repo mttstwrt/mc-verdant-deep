@@ -4130,5 +4130,43 @@
   "sun": {
     "margin": 4,
     "fade": 8
+  },
+  "wall_bowls": {
+    "min_leak": 3,
+    "drop": {
+      "min_inclusive": 3,
+      "max_inclusive": 6
+    },
+    "search": 12,
+    "margin": 2,
+    "clearance": 3,
+    "lava_clearance": 6,
+    "fire_clearance": 3,
+    "lava_rock": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "minecraft:basalt",
+            "Properties": {
+              "axis": "y"
+            }
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "minecraft:blackstone"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "minecraft:smooth_basalt"
+          },
+          "weight": 1
+        }
+      ]
+    }
   }
 }

@@ -70,6 +70,8 @@ public final class DiscGrower {
         growInherited(level, generator, footprint, chunkPos, draws, decorationSeed);
         // Last of what grows, so that what hangs under a root finds a disc's trees already standing in its way.
         footprint.forEachRootGrowth(chunkPos.getMinBlockX(), chunkPos.getMinBlockZ(), level.getMinBuildHeight(), level.getMaxBuildHeight(), place);
+        // Before the hole's own springs open, so that what the wall lets out is told apart from them.
+        WallBowls.catchLeaks(level, footprint, chunkPos, draws);
         openSprings(level, generator, footprint, chunkPos, draws);
         mendDiscs(level, footprint, chunkPos, draws);
         keepFallsOpen(level, footprint, chunkPos);

@@ -204,6 +204,34 @@ public interface RavineFootprint {
         return false;
     }
 
+    /** Whether a block lies in the carved volume itself; see {@link #isOpen(DensityFunction.FunctionContext)}. */
+    default boolean isOpen(int x, int y, int z) {
+        return isOpen(new DensityFunction.SinglePointContext(x, y, z));
+    }
+
+    /**
+     * Whether a block lies within a hole's edge falloff of its open air, so near the wall that a cave there may well open into
+     * the hole. Includes the open air itself.
+     */
+    default boolean isNearOpen(int x, int y, int z) {
+        return false;
+    }
+
+    /** The bowls that catch what the wall of the hole at {@code (x, z)} lets out of the terrain, if it has a wall that does. */
+    default Optional<WallBowlSettings> wallBowlsAt(int x, int z) {
+        return Optional.empty();
+    }
+
+    /** Whether a block is the terrain's own, outside every hole's open air, discs and falls (see {@link RavineCarve#isTerrainAt}). */
+    default boolean isTerrainAt(int x, int y, int z) {
+        return true;
+    }
+
+    /** How far a block is from every disc's rock, root and fall, up to {@code cap} (see {@link RavineCarve#clearanceAt}). */
+    default double clearanceAt(int x, int y, int z, double cap) {
+        return cap;
+    }
+
     /** The gas of one hole, and the column of the hole's middle, which its pulls draw gas towards. */
     record HoleGasAt(double x, double z, HoleGas gas) {}
 
@@ -260,6 +288,48 @@ public interface RavineFootprint {
                     }
                 }
                 return false;
+            }
+
+            @Override
+            public boolean isNearOpen(int x, int y, int z) {
+                var context = new DensityFunction.SinglePointContext(x, y, z);
+                for (Region region : copy) {
+                    // The carve rises from its open air to fully solid over the edge falloff.
+                    if (region.carve().compute(context) < 1) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public Optional<WallBowlSettings> wallBowlsAt(int x, int z) {
+                for (Region region : copy) {
+                    Optional<WallBowlSettings> found = region.carve().wallBowlsAt(x, z);
+                    if (found.isPresent()) {
+                        return found;
+                    }
+                }
+                return Optional.empty();
+            }
+
+            @Override
+            public boolean isTerrainAt(int x, int y, int z) {
+                for (Region region : copy) {
+                    if (!region.carve().isTerrainAt(x, y, z)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            @Override
+            public double clearanceAt(int x, int y, int z, double cap) {
+                double nearest = cap;
+                for (Region region : copy) {
+                    nearest = Math.min(nearest, region.carve().clearanceAt(x, y, z, cap));
+                }
+                return nearest;
             }
 
             @Override
