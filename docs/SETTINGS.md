@@ -758,8 +758,8 @@ Its density is drawn independently per disc between `min_density` (0.03) and `ma
 A separate draw selects `dense_medium` (`verdant_deep:dense_mist`) instead of `medium` (`verdant_deep:mist`),
 with chance interpolated from `shallow_chance` (0.08) at the lip to `deep_chance` (0.45) at the floor.
 Dense layers draw 70–100% of `dense_density` (0.85). If `sharp` is present, its `chance` (0.25) is the share of
-dense draws that use its `medium` (`verdant_deep:sharp_mist`). Sharp mist has extinction 0.34, a puffy edge
-preset and a fringe of at most 0.75 blocks. For sharper outlines with froxels, enable the optional client experiment
+dense draws that use its `medium` (`verdant_deep:sharp_mist`). Sharp mist uses the Volumetrics fog wall demo's extinction of 4.0
+and sharp edge profile (smooth preset, threshold 0.25, softness 0.04, fill 0.8), with a field fringe of at most 0.75 blocks. For sharper outlines with froxels, enable the optional client experiment
 `/volumetrics experiment froxel_edges on` in the bundled Volumetrics build. Every layer is `height` (9) blocks tall,
 thins upwards to zero and fades at its edges. Draws use the world seed and disc index, so revisiting a disc
 keeps its look. These are worldgen defaults in `carve.json`; omit `disc_fog` to disable the layers.
