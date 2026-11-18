@@ -19,7 +19,7 @@ import net.minecraft.resources.ResourceLocation;
  *
  * @param sources the hole's sources, at most {@link #MAX_SOURCES}
  * @param fogs    the hole's fogs, at most {@link #MAX_FOGS}
- * @param flows   where the gas on the hole's discs drifts toward its axis, one for each disc that gives off gas, at most
+ * @param flows   where the gas on the hole's discs drifts toward its axis, one per disc with theme gas or a simulated bank, at most
  *                {@link #MAX_FLOWS}
  * @param dropped how many more sources there were, left out so that what a hole places stays bounded
  */
@@ -28,7 +28,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
     /** The most sources one hole places. */
     public static final int MAX_SOURCES = 4096;
     /** The most fogs one hole places. */
-    public static final int MAX_FOGS = 4;
+    public static final int MAX_FOGS = 257;
     /** The most flow regions one hole places. */
     public static final int MAX_FLOWS = 256;
     // A flow region covers from this far under a disc's platform to this far above it.
@@ -37,6 +37,8 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
     private static final int GAS_HASH_BASE = 2_000_000;
     // Hash indices kept apart for this many gas entries per theme.
     private static final int MAX_GASES = 64;
+    private static final int DISC_FOG_HASH_BASE = 2_200_000;
+    private static final int SHARP_FOG_HASH_BASE = 2_201_000;
     private static final int CAVERN_HASH_BASE = 2_100_000;
     private static final int CHUNK_SIZE = 16;
     // Sources on the cavern's floor keep this share of its radius in, clear of the wall's bumps.
@@ -66,26 +68,63 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
             fromCavern(settings, gas.cavern(), bounds, cell, found);
         });
         fromThemes(settings, cell, discs, surfaceRate, found);
-        List<GasFlow> flows = flowsOf(discs);
+        List<GasFlow> flows = fromDiscs(bounds, cell, discs, settings.dressing().gas().flatMap(GasSettings::discFog),
+                settings.dressing().gas().map(GasSettings::pullSpeed).orElse(0.4F), fogs);
         int dropped = Math.max(0, found.size() - MAX_SOURCES);
         return new HoleGas(found.subList(0, found.size() - dropped), fogs, flows, dropped);
     }
 
-    // One region for each disc whose theme gives off gas, moving those gases, standing from under the platform's top (its middle
-    // is at `floor`) to above it.
-    private static List<GasFlow> flowsOf(CellDiscs discs) {
+    // A disc's simulated bank shares the pull already used by its theme's gas. Drawing the bank and the force together
+    // keeps them in the same chunk and ties the force to the same deterministic roll.
+    private static List<GasFlow> fromDiscs(
+            RavineBounds bounds, RavineCell cell, CellDiscs discs, Optional<GasSettings.DiscFog> fog, float speed, List<GasFog> fogs) {
         List<Disc> all = discs.layout().discs();
         List<GasFlow> flows = new ArrayList<>();
-        for (int i = 0; i < all.size() && flows.size() < MAX_FLOWS; i++) {
+        for (int i = 0; i < all.size(); i++) {
             Disc disc = all.get(i);
+            Optional<DiscTheme> theme = discs.themes().get(i);
             var media = new LinkedHashSet<ResourceLocation>();
-            discs.themes().get(i).ifPresent(theme -> theme.gas().forEach(gas -> media.add(gas.medium())));
-            if (!media.isEmpty()) {
+            theme.ifPresent(found -> found.gas().forEach(gas -> media.add(gas.medium())));
+            if (fog.isPresent() && fogs.size() < MAX_FOGS && !discs.layout().isSurface(disc)
+                    && theme.filter(DiscTheme::holdsLava).isEmpty()) {
+                GasFog bank = discFog(fog.get(), bounds, cell, disc, i);
+                fogs.add(bank);
+                if (bank.simulated()) {
+                    media.add(bank.medium());
+                }
+            }
+            if (!media.isEmpty() && flows.size() < MAX_FLOWS) {
                 flows.add(new GasFlow(List.copyOf(media), disc.x(), disc.floor() - FLOW_BELOW, disc.z(), (float) disc.radius(),
-                        (float) (FLOW_BELOW + FLOW_ABOVE)));
+                        (float) (FLOW_BELOW + FLOW_ABOVE), speed));
             }
         }
         return flows;
+    }
+
+    // Independent hashes keep the ordinary thickness and rare bank selection stable across reloads.
+    private static GasFog discFog(GasSettings.DiscFog fog, RavineBounds bounds, RavineCell cell, Disc disc, int index) {
+        double depth = Math.clamp((bounds.topY() - disc.floor()) / (bounds.topY() - bounds.floorY()), 0, 1);
+        double chance = fog.shallowChance() + depth * (fog.deepChance() - fog.shallowChance());
+        boolean dense = RavineCells.unit(cell.hash(), DISC_FOG_HASH_BASE + 2 * index) < chance;
+        double draw = RavineCells.unit(cell.hash(), DISC_FOG_HASH_BASE + 2 * index + 1);
+        float density = dense ? fog.denseDensity() * (float) (0.7 + 0.3 * draw)
+                : (float) (fog.minDensity() + draw * (fog.maxDensity() - fog.minDensity()));
+        ResourceLocation medium = dense ? fog.denseMedium() : fog.medium();
+        float radius = (float) disc.radius();
+        float fringe = 3;
+        boolean simulated = false;
+        if (dense && fog.sharp().isPresent()) {
+            GasSettings.SharpFog sharp = fog.sharp().get();
+            if (RavineCells.unit(cell.hash(), SHARP_FOG_HASH_BASE + index) < sharp.chance()) {
+                medium = sharp.medium();
+                // The ground fog demo targets half density. Taper it up from the platform for a low bank.
+                density = 0.5F;
+                fringe = 0.75F;
+                simulated = true;
+            }
+        }
+        return new GasFog(medium, disc.x(), disc.floor() - 1, disc.z(), radius, radius, fog.height(), density, 0,
+                Math.min(fringe, Math.min(radius / 3, fog.height() / 3)), simulated);
     }
 
     // Chunk by chunk, as growth is, because what keeps lava clear of what burns is worked out for a chunk at a time.
@@ -183,7 +222,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
         if (settings.cone().isEmpty()) {
             float radius = (float) (settings.cavernRadius() + reach);
             return new GasFog(fog.medium(), cell.centreX(), base, cell.centreZ(), radius, radius, settings.cavernHeight() + 2 * edge,
-                    fog.bottomDensity(), fog.topDensity(), edge);
+                    fog.bottomDensity(), fog.topDensity(), edge, false);
         }
         ConeSettings cone = settings.cone().get();
         double ceiling = fog.aboveEntrance()
@@ -198,7 +237,7 @@ public record HoleGas(List<GasSource> sources, List<GasFog> fogs, List<GasFlow> 
             bottom = Math.max(bottom, (wallAt(settings, cone, bounds, y) + reach - top * up) / (1 - up));
         }
         return new GasFog(fog.medium(), cell.centreX(), base, cell.centreZ(), (float) bottom, (float) top, (float) height,
-                fog.bottomDensity(), fog.topDensity(), edge);
+                fog.bottomDensity(), fog.topDensity(), edge, false);
     }
 
     // How far the hole's wall is from its axis before its unevenness: the cone's, or the cavern's dome where that is wider.

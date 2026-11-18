@@ -1,0 +1,38 @@
+{
+  "_note": "Dense, low-lying disc mist. Drawn as a placed field; motion is unused. Tune optics and detail live with /volumetrics tune medium verdant_deep:dense_mist <path> <value>.",
+  "motion": {
+    "diffusion": 1.5,
+    "decay": 0.05,
+    "drift": {
+      "y": -0.5
+    },
+    "draft": {
+      "speed": 0.3,
+      "period": 90
+    },
+    "response": {
+      "wind": 0.3
+    }
+  },
+  "optics": {
+    "extinction": 0.18,
+    "albedo": "#D8E4E0",
+    "phase": {
+      "forward": 0.5,
+      "back": -0.25,
+      "blend": 0.25
+    },
+    "emission": {
+      "strength": 0.04
+    },
+    "ambient": 1.0,
+    "lamps": 0.8
+  },
+  "detail": {
+    "wisps": {
+      "scale": 0.1,
+      "speed": 0.3,
+      "strength": 0.6
+    }
+  }
+}

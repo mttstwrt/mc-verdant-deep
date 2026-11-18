@@ -8,4 +8,4 @@ import net.minecraft.resources.ResourceLocation;
  * thinning from {@code bottomDensity} to {@code topDensity} on the way up and to nothing over its outermost {@code edge} blocks.
  */
 public record GasFog(ResourceLocation medium, double x, double y, double z, float bottomRadius, float topRadius, float height,
-                     float bottomDensity, float topDensity, float edge) {}
+                     float bottomDensity, float topDensity, float edge, boolean simulated) {}

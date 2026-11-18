@@ -1,0 +1,10 @@
+{
+  "_note": "Simulated disc bank using the Volumetrics ground fog lineup medium.",
+  "motion": { "diffusion": 0.6, "decay": 0.02, "drift": { "y": -1.5 } },
+  "optics": {
+    "extinction": 1.0,
+    "albedo": "#E2E6EA",
+    "phase": { "forward": 0.5, "back": -0.25, "blend": 0.25 }
+  },
+  "detail": { "wisps": { "scale": 0.15, "speed": 0.3, "strength": 0.5 }, "edge": "volumetrics:puffy", "flow": { "strength": 0.6 } }
+}

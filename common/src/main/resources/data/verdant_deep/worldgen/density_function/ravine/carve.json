@@ -3821,7 +3821,19 @@
         "rate": 0.375
       }
     ],
-    "surface_rate": 0.4
+    "surface_rate": 0.4,
+    "pull_speed": 0.4,
+    "disc_fog": {
+      "medium": "verdant_deep:mist",
+      "dense_medium": "verdant_deep:dense_mist",
+      "min_density": 0.03,
+      "max_density": 0.3,
+      "dense_density": 0.85,
+      "shallow_chance": 0.08,
+      "deep_chance": 0.45,
+      "height": 9,
+      "sharp": { "medium": "verdant_deep:sharp_mist", "chance": 0.25 }
+    }
   },
   "sun": {
     "margin": 4,

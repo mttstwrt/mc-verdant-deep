@@ -54,9 +54,6 @@ import net.minecraft.world.phys.Vec3;
  */
 final class HoleGasInputs {
     static final HoleGasInputs NONE = new HoleGasInputs(new Long2ObjectOpenHashMap<>(), 0, 0, 0, 0);
-    // How fast the gas over a disc drifts toward its hole's axis, in blocks per second, and how far past the disc's region
-    // the pull still acts, in blocks: what the zero-rate emitters with a flow gave before v2.
-    private static final float PULL_SPEED = 1.5F;
     private static final float PULL_REACH = 6F;
     private static final float PULL_TAPER = 4F;
 
@@ -89,14 +86,14 @@ final class HoleGasInputs {
             // Measured from the anchor on the axis, at the height of the region's foot.
             Cylinder region = new Cylinder(new Vec3(flow.x() - hole.x(), 0, flow.z() - hole.z()), flow.height(), flow.radius());
             List<ResourceKey<Medium>> media = flow.media().stream().map(HoleGasInputs::medium).toList();
-            Force pull = new Force(new Toward(PULL_SPEED, region, PULL_REACH, PULL_TAPER), media);
+            Force pull = new Force(new Toward(flow.speed(), region, PULL_REACH, PULL_TAPER), media);
             chunks.computeIfAbsent(chunkOf(flow.x(), flow.z()), key -> new Building()).add(pull, Attachment.at(new Vec3(hole.x(), flow.y(), hole.z())));
         }
         int fogs = 0;
         for (GasFog fog : gas.fogs()) {
             if (fog.bottomDensity() > 0 || fog.topDensity() > 0) {
-                // Written where it is in the world, so it goes at the world's origin.
-                chunks.computeIfAbsent(chunkOf(hole.x(), hole.z()), key -> new Building()).add(hazeOf(fog), Attachment.at(Vec3.ZERO));
+                // The field uses world coordinates; its lifetime belongs to its centre chunk.
+                chunks.computeIfAbsent(chunkOf(fog.x(), fog.z()), key -> new Building()).add(fieldOf(fog), Attachment.at(Vec3.ZERO));
                 fogs++;
             }
         }
@@ -141,7 +138,7 @@ final class HoleGasInputs {
 
     // inside(the round shape, thinning over its edge) times its profile up the height, which the library draws in one step: by
     // the same share each block from the bottom density to the top one, or evenly where either is 0.
-    private static PlacedField hazeOf(GasFog fog) {
+    private static PlacedField fieldOf(GasFog fog) {
         float bottom = (float) fog.y();
         float top = bottom + fog.height();
         Field profile;
@@ -154,7 +151,10 @@ final class HoleGasInputs {
             profile = new Linear(Altitude.INSTANCE, bottom, top, fog.bottomDensity(), fog.topDensity());
         }
         Cylinder shape = new Cylinder(new Vec3(fog.x(), fog.y(), fog.z()), fog.height(), fog.bottomRadius(), fog.topRadius());
-        return PlacedField.drawn(medium(fog.medium()), new Mul(List.of(new Inside(shape, fog.edge()), profile)));
+        Field density = new Mul(List.of(new Inside(shape, fog.edge()), profile));
+        // Match the ground fog lineup sample's refill and dissipation rates.
+        return fog.simulated() ? PlacedField.simulated(medium(fog.medium()), density, 1F, 0.5F)
+                : PlacedField.drawn(medium(fog.medium()), density);
     }
 
     private static ResourceKey<Medium> medium(ResourceLocation id) {
