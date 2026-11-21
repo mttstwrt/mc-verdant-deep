@@ -13,6 +13,7 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.FallingBlock;
 import net.minecraft.world.level.block.LiquidBlock;
+import net.minecraft.world.level.block.state.BlockState;
 
 /** Fits a rock ledge under a basin that already holds its fluid. */
 record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach, Direction towardWall) {
@@ -21,6 +22,8 @@ record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach,
 
     private record Lane(List<BlockPos> blocks, BlockPos upperAnchor, BlockPos lowerAnchor, int reach) {}
     private record Footing(List<BlockPos> blocks, BlockPos anchor) {}
+
+    record Shoulders(Direction wall, List<BlockPos> blocks) {}
 
     boolean buttress() {
         return towardWall != Direction.DOWN && reach > LEDGE_REACH;
@@ -76,7 +79,7 @@ record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach,
     }
 
     // Tie the cup's rear lip into the face across as much of its width as the real rock allows.
-    List<BlockPos> shoulders(WorldGenLevel level, RavineFootprint footprint, ChunkPos chunk, LongSet rim, List<BlockPos> dish,
+    Shoulders shoulders(WorldGenLevel level, RavineFootprint footprint, ChunkPos chunk, LongSet rim, List<BlockPos> dish,
             double clearance) {
         clearance = Math.max(1, clearance);
         LongSet planned = new LongOpenHashSet();
@@ -87,13 +90,13 @@ record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach,
             planned.add(block.asLong());
         }
         if (towardWall != Direction.DOWN) {
-            return shouldersAlong(level, footprint, chunk, rim, clearance, planned, towardWall);
+            return new Shoulders(towardWall, shouldersAlong(level, footprint, chunk, rim, clearance, planned, towardWall));
         }
-        List<BlockPos> best = List.of();
+        Shoulders best = new Shoulders(Direction.DOWN, List.of());
         for (Direction side : Direction.Plane.HORIZONTAL) {
             List<BlockPos> candidate = shouldersAlong(level, footprint, chunk, rim, clearance, planned, side);
-            if (candidate.size() > best.size()) {
-                best = candidate;
+            if (candidate.size() > best.blocks().size()) {
+                best = new Shoulders(side, candidate);
             }
         }
         return best;
@@ -134,7 +137,7 @@ record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach,
 
     // A neighboring wall fall may still be dry during decoration. Its source can be above the bridge or beside
     // the column where it leaves the wall. Stop at a ceiling that already closes the column to falling fluid.
-    private static boolean mayCarryFall(WorldGenLevel level, ChunkPos chunk, BlockPos base) {
+    static boolean mayCarryFall(WorldGenLevel level, ChunkPos chunk, BlockPos base) {
         var pos = new BlockPos.MutableBlockPos();
         var beside = new BlockPos.MutableBlockPos();
         for (int y = base.getY(); y < level.getMaxBuildHeight(); y++) {
@@ -241,8 +244,7 @@ record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach,
                 return null;
             }
             var state = level.getBlockState(pos);
-            if (state.isSolidRender(level, pos) && state.getFluidState().isEmpty() && !state.hasBlockEntity()
-                    && !(state.getBlock() instanceof FallingBlock) && footprint.isTerrainAt(pos.getX(), pos.getY(), pos.getZ())) {
+            if (wallRock(level, footprint, pos, state)) {
                 return pos;
             }
             if (!canBuild(level, footprint, pos)) {
@@ -277,12 +279,17 @@ record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach,
         }
     }
 
-    private static boolean inRegion(WorldGenLevel level, ChunkPos chunk, BlockPos pos) {
+    static boolean wallRock(WorldGenLevel level, RavineFootprint footprint, BlockPos pos, BlockState state) {
+        return state.isSolidRender(level, pos) && state.getFluidState().isEmpty() && !state.hasBlockEntity()
+                && !(state.getBlock() instanceof FallingBlock) && footprint.isTerrainAt(pos.getX(), pos.getY(), pos.getZ());
+    }
+
+    static boolean inRegion(WorldGenLevel level, ChunkPos chunk, BlockPos pos) {
         return !level.isOutsideBuildHeight(pos) && Math.abs((pos.getX() >> 4) - chunk.x) <= 1
                 && Math.abs((pos.getZ() >> 4) - chunk.z) <= 1;
     }
 
-    private static boolean canBuild(WorldGenLevel level, RavineFootprint footprint, BlockPos pos) {
+    static boolean canBuild(WorldGenLevel level, RavineFootprint footprint, BlockPos pos) {
         var state = level.getBlockState(pos);
         return state.getFluidState().isEmpty() && !state.hasBlockEntity() && (state.isAir() || state.canBeReplaced())
                 && footprint.isOpen(pos.getX(), pos.getY(), pos.getZ());

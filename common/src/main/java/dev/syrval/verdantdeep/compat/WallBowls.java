@@ -63,7 +63,7 @@ final class WallBowls {
     private enum Outcome { BOWL, INDIRECT, SMALL, WIDE, NO_CLEAR_FALL, NO_ROOM, NEAR_FIRE }
 
     private record Bowl(int level, List<BlockPos> pool, List<BlockPos> rim, List<BlockPos> dish, WallBowlSupport support,
-                        List<BlockPos> shoulders) {}
+                        WallBowlSupport.Shoulders shoulders, LongSet rimColumns) {}
 
     private WallBowls() {}
 
@@ -259,7 +259,9 @@ final class WallBowls {
                 outcome = Outcome.NEAR_FIRE;
                 continue;
             }
-            build(level, bowl, falling, lava, settings, draws);
+            WallBowlTerrace terrace = lava ? WallBowlTerrace.NONE : WallBowlTerrace.fit(level, footprint, chunk,
+                    bowl.rimColumns(), bowl.rim(), pool + RIM_HEIGHT - 1, bowl.shoulders().wall(), Math.max(2, clearance));
+            build(level, bowl, terrace, falling, lava, settings, draws);
             if (!blocked.isEmpty()) {
                 plug(level, blocked);
             }
@@ -268,7 +270,11 @@ final class WallBowls {
             if (VerdantDeep.LOGGER.isDebugEnabled()) {
                 VerdantDeep.LOGGER.debug("Wall catch {} anchors={} support={} pool={} outlets={}", lava ? "lava" : "water",
                         bowl.support().anchors(), bowl.support().blocks(), bowl.pool(), falling.stream().map(Leak::outlet).distinct().toList());
-                VerdantDeep.LOGGER.debug("Wall shoulders at {} blocks={}", bowl.pool().getFirst().toShortString(), bowl.shoulders());
+                VerdantDeep.LOGGER.debug("Wall shoulders at {} blocks={}", bowl.pool().getFirst().toShortString(), bowl.shoulders().blocks());
+                if (!terrace.walkable().isEmpty()) {
+                    VerdantDeep.LOGGER.debug("Wall terrace at {} floor={} blocks={}", bowl.pool().getFirst().toShortString(),
+                            terrace.walkable(), terrace.blocks());
+                }
             }
             return Outcome.BOWL;
         }
@@ -375,8 +381,8 @@ final class WallBowls {
         for (long each : water) {
             poolBlocks.add(BlockPos.of(each));
         }
-        List<BlockPos> shoulders = support.shoulders(level, footprint, chunk, rimColumns, dish, clearance);
-        return Optional.of(new Bowl(pool, poolBlocks, rim, dish, support, shoulders));
+        WallBowlSupport.Shoulders shoulders = support.shoulders(level, footprint, chunk, rimColumns, dish, clearance);
+        return Optional.of(new Bowl(pool, poolBlocks, rim, dish, support, shoulders, rimColumns));
     }
 
     private static boolean isConnected(LongSet unvisited, int height) {
@@ -476,7 +482,8 @@ final class WallBowls {
         return true;
     }
 
-    private static void build(WorldGenLevel level, Bowl bowl, List<Leak> outflow, boolean lava, WallBowlSettings settings, WorldgenRandom draws) {
+    private static void build(WorldGenLevel level, Bowl bowl, WallBowlTerrace terrace, List<Leak> outflow, boolean lava,
+            WallBowlSettings settings, WorldgenRandom draws) {
         BlockState wallRock = wallRockOf(level, outflow);
         for (List<BlockPos> part : List.of(bowl.dish(), bowl.rim())) {
             for (BlockPos each : part) {
@@ -484,7 +491,7 @@ final class WallBowls {
             }
         }
         // Use the native rock at the join even when the fluid-facing shell is basalt.
-        for (List<BlockPos> part : List.of(bowl.support().blocks(), bowl.shoulders())) {
+        for (List<BlockPos> part : List.of(bowl.support().blocks(), bowl.shoulders().blocks(), terrace.blocks())) {
             for (BlockPos each : part) {
                 level.setBlock(each, wallRock, Block.UPDATE_CLIENTS);
             }
