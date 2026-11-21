@@ -757,17 +757,19 @@ decoration is done and before anything flows (`compat/WallBowls.java`):
   every block within `margin` (2) of a fall, so a row of falls down a wall gets a trough along it. It is held by a rim two
   blocks high and a dish under it that thins out from the falls, both of the wall's own rock (the solid block most common
   round the leaks) for water and of `lava_rock` (basalt, blackstone, smooth basalt) for lava; where the terrain's rock is
-  already there, it is the rim. Falling fluid that lands in still fluid does not spread, so the pool holds whatever runs.
-  Every block of the pool and its fall keeps `clearance` (3; lava `lava_clearance`, 6) from a disc's rock, a root and a
-  fall's water, and nothing lava sets alight lies within `fire_clearance` (3) of a lava pool or its fall. Vanilla's
-  decoration on the wall (dripstone, vines, plants, dirt) is built over; another bowl's water and block entities never are.
+  already there, it is the rim. One connected basin needs a two-by-three block join to solid terrain. Where the wall is
+  close behind or beneath the catch, the join forms a short ledge. Across a deeper recess it forms a tapered buttress
+  of wall rock. A catch with no suitable join is tried lower down or plugged. Falling fluid that lands in still fluid does
+  not spread.
+  The pool and wall join keep `clearance` (3; lava `lava_clearance`, 6) from a disc's rock, a root and a fall's water.
+  The drop has its own 1.5-block buffer. Nothing lava sets alight lies within `fire_clearance` (3) of a lava pool
+  or drop. Pointed dripstone, vines and other replaceable plants can be cleared. Stable solid blocks can serve as the basin edge.
   Columns of an outflow that land on the wall before the pool are plugged and the rest is caught.
 - Plugged: an outflow too small (a lone spring), too wide, or with no room for a bowl has its leaking blocks given the
   wall's rock. So is fluid beside a cave of the terrain's within the hole's edge falloff (8 blocks) of its open air: such caves
   often open into the hole, and where their water comes out is not known.
 
-The hole's own springs (`falls.springs`) are left to run. Seed 11, both holes: of 49 outflows, 20 caught, 6 with no room, 3
-landing on the wall, 11 single springs and 11 cave leaks plugged.
+The hole's own springs (`falls.springs`) are left to run.
 
 ### Gas
 

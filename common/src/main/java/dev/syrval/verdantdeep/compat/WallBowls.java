@@ -4,6 +4,7 @@ import dev.syrval.verdantdeep.VerdantDeep;
 import dev.syrval.verdantdeep.ravine.DiscSpringSink;
 import dev.syrval.verdantdeep.ravine.RavineFootprint;
 import dev.syrval.verdantdeep.ravine.WallBowlSettings;
+import it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import java.util.ArrayList;
@@ -21,6 +22,8 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.FallingBlock;
+import net.minecraft.world.level.block.GrowingPlantBlock;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
@@ -59,7 +62,7 @@ final class WallBowls {
     // What became of an outflow, for the debug log.
     private enum Outcome { BOWL, INDIRECT, SMALL, WIDE, NO_CLEAR_FALL, NO_ROOM, NEAR_FIRE }
 
-    private record Bowl(int level, List<BlockPos> pool, List<BlockPos> rim, List<BlockPos> dish) {}
+    private record Bowl(int level, List<BlockPos> pool, List<BlockPos> rim, List<BlockPos> dish, WallBowlSupport support) {}
 
     private WallBowls() {}
 
@@ -76,7 +79,7 @@ final class WallBowls {
             Outcome outcome = outflow.getFirst().indirect() ? Outcome.INDIRECT
                     : outflow.size() < settings.minLeak() ? Outcome.SMALL
                     : outflow.size() > MOST_LEAKS ? Outcome.WIDE
-                    : tryBowl(level, footprint, settings, outflow, draws, why);
+                    : tryBowl(level, footprint, chunkPos, settings, outflow, draws, why);
             if (outcome != Outcome.BOWL) {
                 plug(level, outflow);
             }
@@ -201,7 +204,8 @@ final class WallBowls {
     }
 
     private static Outcome tryBowl(
-            WorldGenLevel level, RavineFootprint footprint, WallBowlSettings settings, List<Leak> outflow, WorldgenRandom draws, StringBuilder why) {
+            WorldGenLevel level, RavineFootprint footprint, ChunkPos chunk, WallBowlSettings settings, List<Leak> outflow,
+            WorldgenRandom draws, StringBuilder why) {
         boolean lava = outflow.getFirst().lava();
         double clearance = lava ? settings.lavaClearance() : settings.clearance();
         int drop = draws.nextIntBetweenInclusive(settings.drop().minInclusive(), settings.drop().maxInclusive());
@@ -245,18 +249,24 @@ final class WallBowls {
         Outcome outcome = Outcome.NO_ROOM;
         why.setLength(0);
         for (int pool = lowest - drop; pool >= lowest - drop - settings.search() && pool > floorOfFalls; pool--) {
-            Optional<Bowl> bowl = fit(level, footprint, tops.keySet(), settings.margin(), pool, clearance, why);
-            if (bowl.isEmpty()) {
+            Optional<Bowl> found = fit(level, footprint, chunk, tops.keySet(), settings.margin(), pool, clearance, why);
+            if (found.isEmpty()) {
                 continue;
             }
-            if (lava && !isFireproof(level, bowl.get(), tops, settings.fireClearance())) {
+            Bowl bowl = found.get();
+            if (lava && !isFireproof(level, bowl, tops, settings.fireClearance())) {
                 outcome = Outcome.NEAR_FIRE;
                 continue;
             }
-            build(level, bowl.get(), falling, lava, settings, draws);
-            why.setLength(0);
+            build(level, bowl, falling, lava, settings, draws);
             if (!blocked.isEmpty()) {
                 plug(level, blocked);
+            }
+            why.setLength(0);
+            why.append(bowl.support().buttress() ? " (buttress)" : " (wall ledge)");
+            if (VerdantDeep.LOGGER.isDebugEnabled()) {
+                VerdantDeep.LOGGER.debug("Wall catch {} anchors={} support={} pool={} outlets={}", lava ? "lava" : "water",
+                        bowl.support().anchors(), bowl.support().blocks(), bowl.pool(), falling.stream().map(Leak::outlet).distinct().toList());
             }
             return Outcome.BOWL;
         }
@@ -264,10 +274,11 @@ final class WallBowls {
     }
 
     // The pool at one height and what holds it, if it fits there: every block within margin of a fall open and clear, and the
-    // blocks round and under it open, which become the rim and the dish, or the terrain's own, which hold it as they are. The
+    // blocks round and under it open, which become the rim and the dish, or already solid enough to hold fluid. The
     // pool follows the falls, so a row of them down a wall gets a long trough along it rather than one wide round basin.
     private static Optional<Bowl> fit(
-            WorldGenLevel level, RavineFootprint footprint, Set<Long> falls, int margin, int pool, double clearance, StringBuilder why) {
+            WorldGenLevel level, RavineFootprint footprint, ChunkPos chunk, Set<Long> falls, int margin, int pool, double clearance,
+            StringBuilder why) {
         var pos = new BlockPos.MutableBlockPos();
         LongSet water = new LongOpenHashSet();
         LongSet seen = new LongOpenHashSet();
@@ -282,7 +293,7 @@ final class WallBowls {
                     pos.set(x, pool, z);
                     if (isFree(level, footprint, pos, clearance)) {
                         water.add(pos.asLong());
-                    } else if (footprint.isOpen(x, pool, z)) {
+                    } else if (footprint.isOpen(x, pool, z) && !holdsFluid(level, pos)) {
                         return failed(why, "pool", level, footprint, pos, clearance);
                     }
                 }
@@ -292,6 +303,15 @@ final class WallBowls {
             if (!water.contains(BlockPos.asLong(BlockPos.getX(column), pool, BlockPos.getZ(column)))) {
                 return failed(why, "fall", level, footprint, pos.set(BlockPos.getX(column), pool, BlockPos.getZ(column)), clearance);
             }
+        }
+        // Clipping a wide outflow to the terrain can split its pool. One wall join only supports one basin.
+        seen.clear();
+        seen.addAll(water);
+        if (!isConnected(seen, pool)) {
+            if (why.isEmpty()) {
+                why.append(" (split pool at y=").append(pool).append(')');
+            }
+            return Optional.empty();
         }
         List<BlockPos> rim = new ArrayList<>();
         List<BlockPos> dish = new ArrayList<>();
@@ -342,11 +362,37 @@ final class WallBowls {
                 dish.add(pos.immutable());
             }
         }
+        WallBowlSupport support = WallBowlSupport.fit(level, footprint, chunk, pool, water, dish, clearance);
+        if (support == null) {
+            if (why.isEmpty()) {
+                why.append(" (no wall join at y=").append(pool).append(')');
+            }
+            return Optional.empty();
+        }
         List<BlockPos> poolBlocks = new ArrayList<>(water.size());
         for (long each : water) {
             poolBlocks.add(BlockPos.of(each));
         }
-        return Optional.of(new Bowl(pool, poolBlocks, rim, dish));
+        return Optional.of(new Bowl(pool, poolBlocks, rim, dish, support));
+    }
+
+    private static boolean isConnected(LongSet unvisited, int height) {
+        long first = unvisited.iterator().nextLong();
+        var pending = new LongArrayFIFOQueue();
+        pending.enqueue(first);
+        unvisited.remove(first);
+        while (!pending.isEmpty() && !unvisited.isEmpty()) {
+            long cell = pending.dequeueLong();
+            int x = BlockPos.getX(cell);
+            int z = BlockPos.getZ(cell);
+            for (Direction side : Direction.Plane.HORIZONTAL) {
+                long next = BlockPos.asLong(x + side.getStepX(), height, z + side.getStepZ());
+                if (unvisited.remove(next)) {
+                    pending.enqueue(next);
+                }
+            }
+        }
+        return unvisited.isEmpty();
     }
 
     // Notes, for the debug log, the first reason a bowl did not fit in an outflow's search.
@@ -361,10 +407,10 @@ final class WallBowls {
         return Optional.empty();
     }
 
-    // A block round or under the pool: the terrain's own holds as it is; open air, clear enough, is taken for the bowl.
+    // Stable solid blocks can hold the pool as they are. Open space, clear enough, is taken for the bowl.
     private static boolean holdsOrTakes(WorldGenLevel level, RavineFootprint footprint, BlockPos.MutableBlockPos pos, double clearance, List<BlockPos> taken) {
-        if (!footprint.isOpen(pos.getX(), pos.getY(), pos.getZ())) {
-            return !level.getBlockState(pos).isAir();
+        if (holdsFluid(level, pos)) {
+            return true;
         }
         if (!isFree(level, footprint, pos, clearance)) {
             return false;
@@ -373,15 +419,21 @@ final class WallBowls {
         return true;
     }
 
-    // Open air of the hole, clear of what must be kept off, that a bowl may take. What vanilla's decoration of the terrain's
-    // biome put on the wall (dripstone, vines, plants, patches of dirt) is taken too, but never a fluid, as another bowl's
-    // pool is, nor a block entity.
+    private static boolean holdsFluid(WorldGenLevel level, BlockPos pos) {
+        BlockState there = level.getBlockState(pos);
+        return there.isSolidRender(level, pos) && there.getFluidState().isEmpty() && !there.hasBlockEntity()
+                && !(there.getBlock() instanceof FallingBlock);
+    }
+
+    // Replace small decoration only. In neighbouring chunks an earlier catch may already have put rock in the carved space.
     private static boolean isFree(WorldGenLevel level, RavineFootprint footprint, BlockPos.MutableBlockPos pos, double clearance) {
         if (level.isOutsideBuildHeight(pos)) {
             return false;
         }
         BlockState there = level.getBlockState(pos);
-        return (there.isAir() || there.getFluidState().isEmpty() && !there.hasBlockEntity())
+        return there.getFluidState().isEmpty() && !there.hasBlockEntity()
+                && (there.isAir() || there.canBeReplaced() || there.is(Blocks.POINTED_DRIPSTONE)
+                        || there.getBlock() instanceof GrowingPlantBlock)
                 && footprint.isOpen(pos.getX(), pos.getY(), pos.getZ()) && footprint.clearanceAt(pos.getX(), pos.getY(), pos.getZ(), clearance) >= clearance;
     }
 
@@ -428,6 +480,10 @@ final class WallBowls {
                 level.setBlock(each, lava ? settings.lavaRock().getState(draws, each) : wallRock, Block.UPDATE_CLIENTS);
             }
         }
+        // Use the native rock at the join even when the fluid-facing shell is basalt.
+        for (BlockPos each : bowl.support().blocks()) {
+            level.setBlock(each, wallRock, Block.UPDATE_CLIENTS);
+        }
         BlockState fluid = (lava ? Blocks.LAVA : Blocks.WATER).defaultBlockState();
         for (BlockPos each : bowl.pool()) {
             level.setBlock(each, fluid, Block.UPDATE_CLIENTS);
@@ -449,7 +505,8 @@ final class WallBowls {
         for (Leak leak : outflow) {
             for (Direction side : Direction.values()) {
                 BlockState there = level.getBlockState(pos.setWithOffset(leak.fluid(), side));
-                if (there.getFluidState().isEmpty() && there.isSolidRender(level, pos) && !there.hasBlockEntity()) {
+                if (there.getFluidState().isEmpty() && there.isSolidRender(level, pos) && !there.hasBlockEntity()
+                        && !(there.getBlock() instanceof FallingBlock)) {
                     counts.merge(there, 1, Integer::sum);
                 }
             }
