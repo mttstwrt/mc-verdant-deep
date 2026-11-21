@@ -754,13 +754,13 @@ decoration is done and before anything flows (`compat/WallBowls.java`):
 
 - Caught: an outflow of at least `min_leak` (3) blocks whose fluid falls clear down the wall gets a pool of the same fluid
   `drop` (3 to 6) blocks under its lowest outlet, or up to `search` (12) blocks lower where that does not fit. The pool is
-  every block within `margin` (2) of a fall, so a row of falls down a wall gets a trough along it. A thin rock shelf carries
-  the pool and thickens into the wall at the join. The water lip sits at pool level, with an extra block next to the falling
-  columns. Lava keeps the taller lip. The shelf and lip use the wall's own rock (the solid block most common round the leaks)
-  for water and `lava_rock` (basalt, blackstone, smooth basalt) for lava; where the terrain's rock is
+  every block within `margin` (2) of a fall, so a row of falls down a wall gets a trough along it. It is held by a rim two
+  blocks high and a dish under it that thins out from the falls, both of the wall's own rock (the solid block most common
+  round the leaks) for water and of `lava_rock` (basalt, blackstone, smooth basalt) for lava; where the terrain's rock is
   already there, it is the rim. One connected basin needs a two-by-three block join to solid terrain. Where the wall is
   close behind or beneath the catch, the join forms a short ledge. Across a deeper recess it forms a tapered buttress
-  of wall rock. A catch with no suitable join is tried lower down or plugged. Falling fluid that lands in still fluid does
+  of wall rock. Where the rock face is in reach, the rear lip extends into it across several columns and thickens toward
+  the wall. A catch with no suitable join is tried lower down or plugged. Falling fluid that lands in still fluid does
   not spread.
   The pool and wall join keep `clearance` (3; lava `lava_clearance`, 6) from a disc's rock, a root and a fall's water.
   The drop has its own 1.5-block buffer. Nothing lava sets alight lies within `fire_clearance` (3) of a lava pool

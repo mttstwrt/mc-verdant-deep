@@ -51,6 +51,8 @@ final class WallBowls {
     private static final int MOST_LEAKS = 400;
     // Columns looked at across a chunk to tell whether a hole reaches it: every fourth block, edges included.
     private static final int SAMPLE_STEP = 5;
+    private static final int RIM_HEIGHT = 2;
+    private static final int DISH_DEPTH = 4;
     // A fall's own blocks may pass this close to anything it must keep off: it touches nothing on the way down.
     private static final double FALL_CLEARANCE = 1.5;
 
@@ -60,7 +62,8 @@ final class WallBowls {
     // What became of an outflow, for the debug log.
     private enum Outcome { BOWL, INDIRECT, SMALL, WIDE, NO_CLEAR_FALL, NO_ROOM, NEAR_FIRE }
 
-    private record Bowl(int level, List<BlockPos> pool, List<BlockPos> rim, List<BlockPos> shelf, WallBowlSupport support) {}
+    private record Bowl(int level, List<BlockPos> pool, List<BlockPos> rim, List<BlockPos> dish, WallBowlSupport support,
+                        List<BlockPos> shoulders) {}
 
     private WallBowls() {}
 
@@ -247,7 +250,7 @@ final class WallBowls {
         Outcome outcome = Outcome.NO_ROOM;
         why.setLength(0);
         for (int pool = lowest - drop; pool >= lowest - drop - settings.search() && pool > floorOfFalls; pool--) {
-            Optional<Bowl> found = fit(level, footprint, chunk, tops.keySet(), settings.margin(), pool, clearance, lava, why);
+            Optional<Bowl> found = fit(level, footprint, chunk, tops.keySet(), settings.margin(), pool, clearance, why);
             if (found.isEmpty()) {
                 continue;
             }
@@ -265,6 +268,7 @@ final class WallBowls {
             if (VerdantDeep.LOGGER.isDebugEnabled()) {
                 VerdantDeep.LOGGER.debug("Wall catch {} anchors={} support={} pool={} outlets={}", lava ? "lava" : "water",
                         bowl.support().anchors(), bowl.support().blocks(), bowl.pool(), falling.stream().map(Leak::outlet).distinct().toList());
+                VerdantDeep.LOGGER.debug("Wall shoulders at {} blocks={}", bowl.pool().getFirst().toShortString(), bowl.shoulders());
             }
             return Outcome.BOWL;
         }
@@ -272,10 +276,10 @@ final class WallBowls {
     }
 
     // The pool at one height and what holds it, if it fits there: every block within margin of a fall open and clear, and the
-    // blocks round and under it open, which become the lip and the shelf, or already solid enough to hold fluid. The
+    // blocks round and under it open, which become the rim and the dish, or already solid enough to hold fluid. The
     // pool follows the falls, so a row of them down a wall gets a long trough along it rather than one wide round basin.
     private static Optional<Bowl> fit(
-            WorldGenLevel level, RavineFootprint footprint, ChunkPos chunk, Set<Long> falls, int margin, int pool, double clearance, boolean lava,
+            WorldGenLevel level, RavineFootprint footprint, ChunkPos chunk, Set<Long> falls, int margin, int pool, double clearance,
             StringBuilder why) {
         var pos = new BlockPos.MutableBlockPos();
         LongSet water = new LongOpenHashSet();
@@ -312,7 +316,7 @@ final class WallBowls {
             return Optional.empty();
         }
         List<BlockPos> rim = new ArrayList<>();
-        List<BlockPos> shelf = new ArrayList<>();
+        List<BlockPos> dish = new ArrayList<>();
         LongSet rimColumns = new LongOpenHashSet();
         for (long each : water) {
             int x = BlockPos.getX(each);
@@ -321,52 +325,58 @@ final class WallBowls {
                 for (int dz = -1; dz <= 1; dz++) {
                     long beside = BlockPos.asLong(x + dx, pool, z + dz);
                     if (!water.contains(beside) && rimColumns.add(beside)) {
-                        pos.set(x + dx, pool, z + dz);
-                        int before = rim.size();
-                        if (!holdsOrTakes(level, footprint, pos, clearance / 2, rim)) {
-                            return failed(why, "lip", level, footprint, pos, clearance / 2);
-                        }
-                        // Water has a flush lip across the open face. Retain the raised lip at splash points and for lava.
-                        if (rim.size() != before && (lava || besideFall(falls, pos.getX(), pos.getZ()))
-                                && !holdsOrTakes(level, footprint, pos.move(Direction.UP), clearance / 2, rim)) {
-                            return failed(why, "raised lip", level, footprint, pos, clearance / 2);
+                        // Where the terrain holds the pool's side, the rim is the terrain's; it is built up only on open air.
+                        for (int up = 0; up < RIM_HEIGHT; up++) {
+                            pos.set(x + dx, pool + up, z + dz);
+                            int before = rim.size();
+                            if (!holdsOrTakes(level, footprint, pos, clearance / 2, rim)) {
+                                return failed(why, "rim", level, footprint, pos, clearance / 2);
+                            }
+                            if (rim.size() == before) {
+                                break;
+                            }
                         }
                     }
                 }
             }
             pos.set(x, pool - 1, z);
-            if (!holdsOrTakes(level, footprint, pos, 0, shelf)) {
+            if (!holdsOrTakes(level, footprint, pos, 0, dish)) {
                 return failed(why, "floor", level, footprint, pos, 0);
             }
         }
-        WallBowlSupport support = WallBowlSupport.fit(level, footprint, chunk, pool, water, shelf, clearance);
+        // Under the floor and the rim, a dish that thins out from the middle, into open air only.
+        LongSet under = new LongOpenHashSet(water);
+        under.addAll(rimColumns);
+        for (long each : under) {
+            int x = BlockPos.getX(each);
+            int z = BlockPos.getZ(each);
+            double out = Double.MAX_VALUE;
+            for (long column : falls) {
+                out = Math.min(out, Math.hypot(x - BlockPos.getX(column), z - BlockPos.getZ(column)));
+            }
+            int depth = (int) Math.clamp(Math.round((margin + 2 - out) * 0.8), 1, DISH_DEPTH);
+            int from = water.contains(each) ? pool - 2 : pool - 1;
+            for (int y = from; y > from - depth; y--) {
+                pos.set(x, y, z);
+                if (!level.getBlockState(pos).isAir() || !footprint.isOpen(x, y, z)) {
+                    break;
+                }
+                dish.add(pos.immutable());
+            }
+        }
+        WallBowlSupport support = WallBowlSupport.fit(level, footprint, chunk, pool, water, dish, clearance);
         if (support == null) {
             if (why.isEmpty()) {
                 why.append(" (no wall join at y=").append(pool).append(')');
             }
             return Optional.empty();
         }
-        // Extend the solid shelf from the pool floor to the lip. Thicken it only at the join, so the underside slopes
-        // back into the wall instead of bulging under the middle of the pool.
-        LongSet under = new LongOpenHashSet(water);
-        under.addAll(rimColumns);
-        support.extendShelf(level, footprint, chunk, pool, under, water, clearance, shelf);
         List<BlockPos> poolBlocks = new ArrayList<>(water.size());
         for (long each : water) {
             poolBlocks.add(BlockPos.of(each));
         }
-        return Optional.of(new Bowl(pool, poolBlocks, rim, shelf, support));
-    }
-
-    private static boolean besideFall(Set<Long> falls, int x, int z) {
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dz = -1; dz <= 1; dz++) {
-                if (falls.contains(BlockPos.asLong(x + dx, 0, z + dz))) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        List<BlockPos> shoulders = support.shoulders(level, footprint, chunk, rimColumns, dish, clearance);
+        return Optional.of(new Bowl(pool, poolBlocks, rim, dish, support, shoulders));
     }
 
     private static boolean isConnected(LongSet unvisited, int height) {
@@ -468,14 +478,16 @@ final class WallBowls {
 
     private static void build(WorldGenLevel level, Bowl bowl, List<Leak> outflow, boolean lava, WallBowlSettings settings, WorldgenRandom draws) {
         BlockState wallRock = wallRockOf(level, outflow);
-        for (List<BlockPos> part : List.of(bowl.shelf(), bowl.rim())) {
+        for (List<BlockPos> part : List.of(bowl.dish(), bowl.rim())) {
             for (BlockPos each : part) {
                 level.setBlock(each, lava ? settings.lavaRock().getState(draws, each) : wallRock, Block.UPDATE_CLIENTS);
             }
         }
         // Use the native rock at the join even when the fluid-facing shell is basalt.
-        for (BlockPos each : bowl.support().blocks()) {
-            level.setBlock(each, wallRock, Block.UPDATE_CLIENTS);
+        for (List<BlockPos> part : List.of(bowl.support().blocks(), bowl.shoulders())) {
+            for (BlockPos each : part) {
+                level.setBlock(each, wallRock, Block.UPDATE_CLIENTS);
+            }
         }
         BlockState fluid = (lava ? Blocks.LAVA : Blocks.WATER).defaultBlockState();
         for (BlockPos each : bowl.pool()) {
@@ -499,7 +511,7 @@ final class WallBowls {
             for (Direction side : Direction.values()) {
                 BlockState there = level.getBlockState(pos.setWithOffset(leak.fluid(), side));
                 if (there.getFluidState().isEmpty() && there.isSolidRender(level, pos) && !there.hasBlockEntity()
-                        && !(there.getBlock() instanceof FallingBlock)) {
+                        && !there.ignitedByLava() && !(there.getBlock() instanceof FallingBlock)) {
                     counts.merge(there, 1, Integer::sum);
                 }
             }

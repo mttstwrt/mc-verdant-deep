@@ -10,8 +10,7 @@ import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvi
  * lakes and vanilla's springs). Each place the wall lets a fluid out is an outflow: the leaking blocks that lie together. An
  * outflow of at least {@code minLeak} blocks that falls clear down the wall gets a bowl: a pool of the same fluid a few
  * blocks under it ({@code drop}, then up to {@code search} blocks lower where that does not fit), {@code margin} blocks
- * wider than the fall all round, held by a rock shelf joined to the wall. The lip is flush for water away from the fall and
- * raised for lava. Falling fluid that
+ * wider than the fall all round, with a rim two blocks high and a dish joined to terrain by a ledge or buttress. Falling fluid that
  * lands in still fluid does not spread, so the pool holds it however long it runs. Every other outflow, too small, too near
  * something or with nowhere to put a bowl, is plugged with the rock round it, so nothing the wall lets out reaches a disc, a
  * root or a fall's water.
