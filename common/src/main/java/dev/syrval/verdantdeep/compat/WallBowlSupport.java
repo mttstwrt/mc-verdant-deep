@@ -2,6 +2,7 @@ package dev.syrval.verdantdeep.compat;
 
 import dev.syrval.verdantdeep.ravine.RavineFootprint;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +22,7 @@ record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach,
     private record Footing(List<BlockPos> blocks, BlockPos anchor) {}
 
     static WallBowlSupport fit(WorldGenLevel level, RavineFootprint footprint, ChunkPos chunk, int pool, LongSet water,
-            List<BlockPos> dish, double clearance) {
+            List<BlockPos> floor, double clearance) {
         // A zero configured buffer still leaves planned disc, root and fall blocks to their owners.
         clearance = Math.max(1, clearance);
         WallBowlSupport best = null;
@@ -61,7 +62,7 @@ record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach,
                                 taper(level, footprint, chunk, lane, towardWall, clearance, blocks);
                             }
                         }
-                        blocks.removeAll(dish);
+                        blocks.removeAll(floor);
                         best = new WallBowlSupport(blocks, anchors, reach, reach > LEDGE_REACH);
                     }
                 }
@@ -71,7 +72,7 @@ record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach,
             }
         }
         if (best == null || best.buttress()) {
-            WallBowlSupport ledge = fitBelow(level, footprint, chunk, water, dish, clearance);
+            WallBowlSupport ledge = fitBelow(level, footprint, chunk, water, floor, clearance);
             if (ledge != null) {
                 return ledge;
             }
@@ -79,9 +80,40 @@ record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach,
         return best;
     }
 
+    void extendShelf(WorldGenLevel level, RavineFootprint footprint, ChunkPos chunk, int pool, LongSet outline,
+            LongSet water, double clearance, List<BlockPos> shelf) {
+        clearance = Math.max(1, clearance);
+        LongSet joins = new LongOpenHashSet();
+        for (BlockPos block : blocks) {
+            joins.add(block.asLong());
+        }
+        var pos = new BlockPos.MutableBlockPos();
+        for (long cell : outline) {
+            int x = BlockPos.getX(cell);
+            int z = BlockPos.getZ(cell);
+            int distance = 5;
+            for (BlockPos anchor : anchors) {
+                distance = Math.min(distance, Math.abs(x - anchor.getX()) + Math.abs(z - anchor.getZ()));
+            }
+            int depth = (5 - distance) / 2;
+            int first = water.contains(cell) ? 2 : 1;
+            for (int down = first; down <= 1 + depth; down++) {
+                pos.set(x, pool - down, z);
+                if (joins.contains(pos.asLong())) {
+                    continue;
+                }
+                if (!inRegion(level, chunk, pos) || !level.getBlockState(pos).isAir() || !footprint.isOpen(x, pos.getY(), z)
+                        || footprint.clearanceAt(x, pos.getY(), z, clearance) < clearance) {
+                    break;
+                }
+                shelf.add(pos.immutable());
+            }
+        }
+    }
+
     // A sloping wall can meet the floor from below even where the rock at the back is too far away.
     private static WallBowlSupport fitBelow(WorldGenLevel level, RavineFootprint footprint, ChunkPos chunk, LongSet water,
-            List<BlockPos> dish, double clearance) {
+            List<BlockPos> floor, double clearance) {
         var footings = new Long2ObjectOpenHashMap<Footing>();
         for (long cell : water) {
             var blocks = new ArrayList<BlockPos>();
@@ -93,7 +125,7 @@ record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach,
         for (long cell : water) {
             BlockPos start = BlockPos.of(cell);
             for (int width = 2; width <= 3; width++) {
-                WallBowlSupport ledge = ledgeAt(footings, start, width, dish);
+                WallBowlSupport ledge = ledgeAt(footings, start, width, floor);
                 if (ledge != null) {
                     return ledge;
                 }
@@ -102,7 +134,7 @@ record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach,
         return null;
     }
 
-    private static WallBowlSupport ledgeAt(Long2ObjectOpenHashMap<Footing> footings, BlockPos start, int width, List<BlockPos> dish) {
+    private static WallBowlSupport ledgeAt(Long2ObjectOpenHashMap<Footing> footings, BlockPos start, int width, List<BlockPos> floor) {
         var blocks = new ArrayList<BlockPos>();
         var anchors = new ArrayList<BlockPos>(6);
         int highest = Integer.MIN_VALUE;
@@ -122,7 +154,7 @@ record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach,
         if (highest - lowest > 2) {
             return null;
         }
-        blocks.removeAll(dish);
+        blocks.removeAll(floor);
         return new WallBowlSupport(blocks, anchors, start.getY() - 1 - lowest, false);
     }
 
