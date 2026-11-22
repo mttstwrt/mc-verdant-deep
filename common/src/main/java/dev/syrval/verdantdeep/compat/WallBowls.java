@@ -18,6 +18,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.Block;
@@ -259,8 +260,16 @@ final class WallBowls {
                 outcome = Outcome.NEAR_FIRE;
                 continue;
             }
-            WallBowlTerrace terrace = lava ? WallBowlTerrace.NONE : WallBowlTerrace.fit(level, footprint, chunk,
-                    bowl.rimColumns(), bowl.rim(), pool + RIM_HEIGHT - 1, bowl.shoulders().wall(), Math.max(2, clearance));
+            WallBowlTerrace terrace = WallBowlTerrace.NONE;
+            if (!lava) {
+                LongSet ownSources = new LongOpenHashSet();
+                for (Leak leak : outflow) {
+                    ownSources.add(leak.fluid().asLong());
+                }
+                terrace = WallBowlTerrace.fit(level, footprint, chunk, bowl.rimColumns(), bowl.rim(), pool + RIM_HEIGHT - 1,
+                        bowl.shoulders().wall(), Math.max(2, clearance), ownSources, settings.margin() + 2,
+                        settings.drop().maxInclusive() + settings.search());
+            }
             build(level, bowl, terrace, falling, lava, settings, draws);
             if (!blocked.isEmpty()) {
                 plug(level, blocked);
@@ -485,21 +494,47 @@ final class WallBowls {
     private static void build(WorldGenLevel level, Bowl bowl, WallBowlTerrace terrace, List<Leak> outflow, boolean lava,
             WallBowlSettings settings, WorldgenRandom draws) {
         BlockState wallRock = wallRockOf(level, outflow);
-        for (List<BlockPos> part : List.of(bowl.dish(), bowl.rim())) {
-            for (BlockPos each : part) {
-                level.setBlock(each, lava ? settings.lavaRock().getState(draws, each) : wallRock, Block.UPDATE_CLIENTS);
+        int floorY = bowl.level() + RIM_HEIGHT - 1;
+        // A decorated neighbor can otherwise grow spikes or place a dripstone pool over the new walking surface.
+        BlockState walkingRock = terrace.walkable().isEmpty() ? wallRock : terraceFloorRock(wallRock);
+        for (BlockPos each : bowl.dish()) {
+            level.setBlock(each, lava ? settings.lavaRock().getState(draws, each) : wallRock, Block.UPDATE_CLIENTS);
+        }
+        for (BlockPos each : bowl.rim()) {
+            BlockState rock = lava ? settings.lavaRock().getState(draws, each) : wallRock;
+            if (each.getY() == floorY && rock != walkingRock) {
+                for (Direction side : Direction.Plane.HORIZONTAL) {
+                    if (terrace.walkable().contains(each.relative(side))) {
+                        rock = walkingRock;
+                        break;
+                    }
+                }
             }
+            level.setBlock(each, rock, Block.UPDATE_CLIENTS);
         }
         // Use the native rock at the join even when the fluid-facing shell is basalt.
-        for (List<BlockPos> part : List.of(bowl.support().blocks(), bowl.shoulders().blocks(), terrace.blocks())) {
+        for (List<BlockPos> part : List.of(bowl.support().blocks(), bowl.shoulders().blocks())) {
             for (BlockPos each : part) {
                 level.setBlock(each, wallRock, Block.UPDATE_CLIENTS);
             }
+        }
+        for (BlockPos each : terrace.blocks()) {
+            level.setBlock(each, each.getY() == floorY ? walkingRock : wallRock, Block.UPDATE_CLIENTS);
         }
         BlockState fluid = (lava ? Blocks.LAVA : Blocks.WATER).defaultBlockState();
         for (BlockPos each : bowl.pool()) {
             level.setBlock(each, fluid, Block.UPDATE_CLIENTS);
         }
+    }
+
+    private static BlockState terraceFloorRock(BlockState wallRock) {
+        if (wallRock.is(Blocks.DRIPSTONE_BLOCK)) {
+            return Blocks.PACKED_MUD.defaultBlockState();
+        }
+        if (wallRock.is(BlockTags.DRIPSTONE_REPLACEABLE) || wallRock.is(BlockTags.BASE_STONE_OVERWORLD)) {
+            return wallRock.is(Blocks.DEEPSLATE) ? Blocks.COBBLED_DEEPSLATE.defaultBlockState() : Blocks.COBBLESTONE.defaultBlockState();
+        }
+        return wallRock;
     }
 
     // The leaks are given the rock round them, which shuts the wall where it cut into the fluid.
