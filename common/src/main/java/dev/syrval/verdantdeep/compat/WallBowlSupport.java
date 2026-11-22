@@ -138,25 +138,20 @@ record WallBowlSupport(List<BlockPos> blocks, List<BlockPos> anchors, int reach,
     // A neighboring wall fall may still be dry during decoration. Its source can be above the bridge or beside
     // the column where it leaves the wall. Stop at a ceiling that already closes the column to falling fluid.
     static boolean mayCarryFall(WorldGenLevel level, ChunkPos chunk, BlockPos base) {
-        return mayCarryFall(level, chunk, base, LongSet.of(), level.getMaxBuildHeight());
-    }
-
-    static boolean mayCarryFall(WorldGenLevel level, ChunkPos chunk, BlockPos base, LongSet sourcesToIgnore, int ceiling) {
         var pos = new BlockPos.MutableBlockPos();
         var beside = new BlockPos.MutableBlockPos();
-        for (int y = base.getY(); y < ceiling; y++) {
+        for (int y = base.getY(); y < level.getMaxBuildHeight(); y++) {
             pos.set(base.getX(), y, base.getZ());
             var state = level.getBlockState(pos);
             if (state.getBlock() instanceof LiquidBlock) {
-                return !sourcesToIgnore.contains(pos.asLong());
+                return true;
             }
             if (!state.isAir() && !state.canBeReplaced()) {
                 return false;
             }
             for (Direction side : Direction.Plane.HORIZONTAL) {
                 beside.setWithOffset(pos, side);
-                if (inRegion(level, chunk, beside) && !sourcesToIgnore.contains(beside.asLong())
-                        && level.getBlockState(beside).getBlock() instanceof LiquidBlock) {
+                if (inRegion(level, chunk, beside) && level.getBlockState(beside).getBlock() instanceof LiquidBlock) {
                     return true;
                 }
             }

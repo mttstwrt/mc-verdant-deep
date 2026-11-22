@@ -766,10 +766,13 @@ decoration is done and before anything flows (`compat/WallBowls.java`):
   The drop has its own 1.5-block buffer. Nothing lava sets alight lies within `fire_clearance` (3) of a lava pool
   or drop. Pointed dripstone, vines and other replaceable plants can be cleared. Stable solid blocks can serve as the basin edge.
   Columns of an outflow that land on the wall before the pool are plugged and the rest is caught.
-  A water catch can also have a dry terrace at rim height. The fitter first looks for a shelf five to nine blocks wide
-  with at least 30 floor blocks. A long shelf keys into the cliff along its length. A broad apron can extend up to six
-  blocks past the cup and ties through at least four adjacent rim blocks. Narrower landings fit where space is tight.
-  All these shapes reuse exposed native rock and check headroom, the basin, other drops, roots and discs.
+  A water catch can also have a dry shelf at rim height, made of the wall's rock. It leaves the cup's lip nearest the
+  wall and runs 7 to 11 blocks along the face, one lane at a time. Each lane starts at the face and sticks out 4 to 6
+  blocks by the cup, a block more or less from lane to lane, narrowing over the far third. The shelf ends where the face
+  turns away by more than a block between lanes or a lane cannot keep two blocks of headroom. It needs at least three
+  lanes and 12 floor blocks, and nothing sticks out from the cup into the open hole. Under the floor the rock is deepest
+  at the face (one more than the lane's depth) and runs out toward the front. Near the face it carries on down to the
+  wall where the wall slopes under it. The shelf checks the basin, other drops, roots and discs.
 - Plugged: an outflow too small (a lone spring), too wide, or with no room for a bowl has its leaking blocks given the
   wall's rock. So is fluid beside a cave of the terrain's within the hole's edge falloff (8 blocks) of its open air: such caves
   often open into the hole, and where their water comes out is not known.
