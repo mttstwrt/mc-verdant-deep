@@ -21,8 +21,6 @@ import org.jetbrains.annotations.Nullable;
  * the ones the target cannot see are preferred, so between strikes it lurks behind trunks and bushes where there are any.
  */
 public final class BasiliskTactics {
-    /** The first strike of a fight comes this soon after the target is taken, at the earliest. */
-    private static final int FIRST_STRIKE_TICKS = 30;
     /** Blocks of arc advanced round the target per circling step. */
     private static final double CIRCLE_ARC = 5.0D;
     private static final double[] CIRCLE_STEPS = {1.0D, 0.5D, 1.6D};
@@ -47,14 +45,19 @@ public final class BasiliskTactics {
         this.basilisk = basilisk;
     }
 
-    /** A new fight, or the same one picked up again: strike soon, and circle a fresh ring. */
+    /** Arm on acquisition because the attack goal can run before the first stalk tick. */
     public void engage() {
-        nextStrikeAt = Math.max(nextStrikeAt, basilisk.tickCount + FIRST_STRIKE_TICKS);
-        newCircle();
+        nextStrikeAt = Math.max(nextStrikeAt, basilisk.tickCount + BasiliskTuning.get().ticks(Dial.FIRST_LUNGE_DELAY));
+        circleRadius = BasiliskTuning.get().between(Dial.CIRCLE_MIN, Dial.CIRCLE_MAX, basilisk.getRandom()) * reach();
+        clockwise = basilisk.getRandom().nextBoolean();
     }
 
     public boolean strikeReady() {
         return basilisk.tickCount >= nextStrikeAt;
+    }
+
+    public boolean exhaustedSearch() {
+        return basilisk.tickCount - nextStrikeAt >= BasiliskTuning.get().ticks(Dial.SEARCH_PATIENCE);
     }
 
     public boolean biteReady() {
@@ -75,12 +78,6 @@ public final class BasiliskTactics {
 
     public boolean canRetreat() {
         return basilisk.tickCount >= retreatBlockedUntil;
-    }
-
-    /** Pick a ring between the CIRCLE dials and a direction round it. */
-    public void newCircle() {
-        circleRadius = BasiliskTuning.get().between(Dial.CIRCLE_MIN, Dial.CIRCLE_MAX, basilisk.getRandom()) * reach();
-        clockwise = basilisk.getRandom().nextBoolean();
     }
 
     public void reverse() {
@@ -109,20 +106,19 @@ public final class BasiliskTactics {
         double cover = BasiliskTuning.get().get(Dial.COVER);
         Vec3 best = null;
         double bestScore = Double.NEGATIVE_INFINITY;
-        for (int way = 0; way < 2; way++) {
-            boolean ahead = way == 0;
-            double sign = (clockwise == ahead) ? 1.0D : -1.0D;
-            for (double step : CIRCLE_STEPS) {
-                for (double offset : CIRCLE_RADIUS_OFFSETS) {
-                    double radius = Math.clamp(circleRadius + offset, circleMin(), circleMax());
-                    Vec3 p = pointAround(target, bearing + sign * step * CIRCLE_ARC / radius, radius);
-                    if (TerrainProbe.isNearEdge(basilisk.level(), p.x, p.y, p.z)) continue;
-                    double score = -Math.abs(radius - circleRadius) * 0.3D - Math.abs(step - 1.0D) - (ahead ? 0.0D : 2.5D)
-                        + (hiddenFrom(target, p) ? cover * COVER_SCORE : 0.0D) + basilisk.getRandom().nextDouble() * 0.5D;
-                    if (score > bestScore) {
-                        bestScore = score;
-                        best = p;
-                    }
+        double sign = clockwise ? 1.0D : -1.0D;
+        double min = circleMin();
+        double max = circleMax();
+        for (double step : CIRCLE_STEPS) {
+            for (double offset : CIRCLE_RADIUS_OFFSETS) {
+                double radius = Math.clamp(circleRadius + offset, min, max);
+                Vec3 p = pointAround(target, bearing + sign * step * CIRCLE_ARC / radius, radius);
+                if (TerrainProbe.isNearEdge(basilisk.level(), p.x, p.y, p.z)) continue;
+                double score = -Math.abs(radius - circleRadius) * 0.3D - Math.abs(step - 1.0D)
+                    + (cover > 0.0D && hiddenFrom(target, p) ? cover * COVER_SCORE : 0.0D) + basilisk.getRandom().nextDouble() * 0.5D;
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = p;
                 }
             }
         }
@@ -153,18 +149,11 @@ public final class BasiliskTactics {
     @Nullable
     public Vec3 strikePoint(LivingEntity target, double radius) {
         double bearing = bearing(target);
-        Vec3 best = null;
-        double bestScore = Double.NEGATIVE_INFINITY;
         for (double offset : STRIKE_BEARINGS) {
             Vec3 p = pointAround(target, bearing + offset, radius);
-            if (TerrainProbe.isNearEdge(basilisk.level(), p.x, p.y, p.z)) continue;
-            double score = -Math.abs(offset) + (hiddenFrom(target, p) ? 0.0D : 3.0D);
-            if (score > bestScore) {
-                bestScore = score;
-                best = p;
-            }
+            if (!TerrainProbe.isNearEdge(basilisk.level(), p.x, p.y, p.z) && !hiddenFrom(target, p)) return p;
         }
-        return best;
+        return null;
     }
 
     /** Radians, from the target to us. */

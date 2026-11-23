@@ -66,6 +66,7 @@ public class BasiliskAttackGoal extends Goal {
     private int lungeTicks;
     private int retreatTicks;
     private boolean hitLanded;
+    private int windupTargetId;
     private Vec3 aim;
     private Vec3 lungeDir = Vec3.ZERO;
 
@@ -95,7 +96,8 @@ public class BasiliskAttackGoal extends Goal {
 
     /** Inside the ring and not striking: back off instead of staying in melee. */
     private boolean tooClose(LivingEntity t) {
-        return basilisk.tactics().canRetreat() && basilisk.distanceTo(t) < Math.max(lungeMinRange(), TOO_CLOSE_SHARE * basilisk.tactics().circleMin());
+        return basilisk.tactics().canRetreat() && basilisk.distanceTo(t) < Math.max(lungeMinRange(), TOO_CLOSE_SHARE * basilisk.tactics().circleMin())
+            && basilisk.getSensing().hasLineOfSight(t);
     }
 
     @Override
@@ -125,6 +127,7 @@ public class BasiliskAttackGoal extends Goal {
             beginRetreat();
         } else {
             boolean room = TerrainProbe.hasHeadroom(basilisk.level(), basilisk, Basilisk.HEAD_RAISE * basilisk.getScale() + 1.0D);
+            windupTargetId = t.getId();
             step = Step.LUNGE_WINDUP;
             windup = room ? LUNGE_WINDUP_REAR_TICKS : LUNGE_WINDUP_COIL_TICKS;
             basilisk.setPhase(room ? BasiliskPhase.REAR : BasiliskPhase.COIL);
@@ -191,6 +194,10 @@ public class BasiliskAttackGoal extends Goal {
     }
 
     private void tickLungeWindup(LivingEntity t) {
+        if (t.getId() != windupTargetId || (aim == null && !basilisk.getSensing().hasLineOfSight(t))) {
+            step = Step.DONE;
+            return;
+        }
         basilisk.getNavigation().stop();
         if (ticks < windup - LUNGE_AIM_LOCK_TICKS) {
             face(t);
@@ -272,14 +279,22 @@ public class BasiliskAttackGoal extends Goal {
     private void tickRetreat(LivingEntity t) {
         if (ticks == BITE_HOLD_TICKS && basilisk.getPhase() == BasiliskPhase.STRIKE) basilisk.setPhase(BasiliskPhase.IDLE);
         BasiliskTactics tactics = basilisk.tactics();
-        if (t == null || ticks >= retreatTicks || basilisk.distanceTo(t) >= tactics.retreatDistance()) {
+        if (t == null || ticks >= retreatTicks) {
+            step = Step.DONE;
+            return;
+        }
+        if (!basilisk.getSensing().hasLineOfSight(t)) {
+            if (basilisk.getNavigation().isDone()) step = Step.DONE;
+            return;
+        }
+        if (basilisk.distanceTo(t) >= tactics.retreatDistance()) {
             step = Step.DONE;
             return;
         }
         basilisk.getLookControl().setLookAt(t, 40.0F, 40.0F);
-        if (ticks % REPATH_TICKS != 1) return;
+        if (ticks % REPATH_TICKS != 1 || !basilisk.getNavigation().isDone()) return;
         Vec3 p = tactics.retreatPoint(t);
-        if (p == null || !basilisk.getNavigation().moveTo(p.x, p.y, p.z, BasiliskTuning.get().get(Dial.RETREAT_SPEED))) {
+        if (p == null || !BasiliskNavigation.walkTo(basilisk, p, BasiliskTuning.get().get(Dial.RETREAT_SPEED))) {
             tactics.retreatBlocked(); // cornered: stand and face it; the stalk goal and the bite take it from here
             step = Step.DONE;
         }

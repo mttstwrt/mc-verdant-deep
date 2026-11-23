@@ -81,7 +81,7 @@ smallest basilisk, and bigger ones multiply them by their reach (up to 1.25).
 | `spawn_below_rim` | 3 | 0 to 64 | blocks under the mouth's edge, on the attempt's own side of the hole, where spawning begins |
 | `spawn_spacing` | 32 | 0 to 128 | blocks around a spawn that must hold no other basilisk |
 | `spawn_asleep` | 0.3 | 0 to 1 | chance a natural spawn starts asleep |
-| `patrol_radius` | 28 | 4 to 96 | blocks round its den (where it first appeared) that it patrols |
+| `patrol_radius` | 28 | 4 to 96 | radius around the den for patrol and unprovoked target selection |
 | `patrol_leg` | 16 | 4 to 48 | longest walk between two stops |
 | `patrol_pause_min`, `patrol_pause_max` | 2, 6 | 0 to 60 | pause at each stop |
 | `patrol_speed` | 0.6 | 0.1 to 2 | patrol speed, times its walking speed |
@@ -89,6 +89,11 @@ smallest basilisk, and bigger ones multiply them by their reach (up to 1.25).
 | `rest_min`, `rest_max` | 60, 150 | 5 to 3600 | how long it rests before it wakes by itself |
 | `circle_min`, `circle_max` | 6, 16 | 2 to 48 | nearest and farthest it circles its target between strikes |
 | `circle_speed` | 1 | 0.2 to 3 | circling speed, times its speed when fighting |
+| `trail_spacing` | 5 | 1 to 32 | average ground distance between slithers and fresh marks |
+| `trail_lifetime` | 8 | 0 to 60 | seconds a mark lasts, zero disables the trail |
+| `search_patience` | 10 | 1 to 60 | seconds to find an approach after the lunge becomes available |
+| `hunt_rest` | 12 | 0 to 120 | quiet time after a hunt before selecting another passerby, seconds |
+| `first_lunge_delay` | 4 | 0 to 60 | minimum seconds from acquiring a target to starting a lunge |
 | `strike_interval_min`, `strike_interval_max` | 4, 12 | 0.5 to 60 | time between strikes |
 | `bite_cooldown` | 3 | 0.5 to 30 | shortest time between snaps at a target that comes too close |
 | `retreat_distance` | 7 | 2 to 32 | how far from its target it retreats after a strike |

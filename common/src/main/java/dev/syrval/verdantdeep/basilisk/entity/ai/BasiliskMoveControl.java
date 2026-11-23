@@ -5,7 +5,6 @@ import dev.syrval.verdantdeep.basilisk.entity.BasiliskPhase;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.control.MoveControl;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -14,8 +13,7 @@ import org.jetbrains.annotations.Nullable;
  * NAGA: NagaMoveControl adds a sine-wave sideways wobble (xxa) so it slithers. Same idea here, with two additions:
  *  - the wobble is gentler and off while a strike is being prepared or recovered from;
  *  - a lava whisker: before moving, look one and two blocks ahead; if the column there ends in lava (or no
- *    floor within fall range) cancel the step. This protects the path-less "steer straight at the target"
- *    fallback and the sideways wobble, neither of which the pathfinder checks.
+ *    floor within fall range) cancel the step. The wobble and the stuck recovery can move off the planned route.
  */
 public class BasiliskMoveControl extends MoveControl {
     /** Stuck fallback: this many ticks with less than STUCK_MIN_MOVE blocks of progress while pathing somewhere. */
@@ -57,8 +55,7 @@ public class BasiliskMoveControl extends MoveControl {
     /**
      * Pathing toward something but hardly moving for STUCK_TICKS: hop with a push toward the destination, and
      * steer straight at it for a moment (the move control bypasses the path), instead of waiting for a repath.
-     * The destination is the path's end (a circling spot, a patrol stop), or the target when there is no path, so a
-     * stuck basilisk that is circling does not lurch into melee.
+     * Only hop toward an active route's endpoint so losing the path cannot reveal a hidden player.
      */
     private void tickStuckFallback() {
         Vec3 destination = destination();
@@ -91,8 +88,7 @@ public class BasiliskMoveControl extends MoveControl {
     private Vec3 destination() {
         BlockPos end = basilisk.getNavigation().getTargetPos();
         if (end != null && !basilisk.getNavigation().isDone()) return Vec3.atBottomCenterOf(end);
-        LivingEntity target = basilisk.getTarget();
-        return target != null ? target.position() : null;
+        return null;
     }
 
     private boolean basiliskFrontIsUnsafe() {

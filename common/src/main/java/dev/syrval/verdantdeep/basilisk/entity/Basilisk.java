@@ -4,6 +4,7 @@ import dev.syrval.verdantdeep.VerdantDeep;
 import dev.syrval.verdantdeep.basilisk.BasiliskEntities;
 import dev.syrval.verdantdeep.basilisk.BasiliskTuning;
 import dev.syrval.verdantdeep.basilisk.BasiliskTuning.Dial;
+import dev.syrval.verdantdeep.basilisk.entity.ai.BasiliskHuntGoal;
 import dev.syrval.verdantdeep.basilisk.entity.ai.BasiliskMoveControl;
 import dev.syrval.verdantdeep.basilisk.entity.ai.BasiliskNavigation;
 import dev.syrval.verdantdeep.basilisk.entity.ai.BasiliskPatrolGoal;
@@ -43,7 +44,6 @@ import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
-import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
@@ -124,6 +124,7 @@ public class Basilisk extends Monster {
     private boolean sizeFitted;
     /** Natural spawns start in the coil whose room checkSpawnObstruction checked, asleep or not. Not saved. */
     private boolean spawnCoiled;
+    private final BasiliskTrail trail = new BasiliskTrail();
     private final BasiliskTactics tactics = new BasiliskTactics(this);
 
     @Override
@@ -175,7 +176,7 @@ public class Basilisk extends Monster {
         this.goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 12.0F));
         this.goalSelector.addGoal(8, new RandomLookAroundGoal(this));
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
-        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
+        this.targetSelector.addGoal(2, new BasiliskHuntGoal(this));
     }
 
     @Override
@@ -186,15 +187,18 @@ public class Basilisk extends Monster {
     /** Engaged = has a target: a transient speed bonus (never saved) makes it about 1.5x faster than on patrol. */
     @Override
     public void setTarget(@Nullable LivingEntity target) {
-        if (target != null && isAsleep()) return; // a sleeper acquires nothing; wake() sets the target itself
+        if (target != null && isAsleep()) return;
+        LivingEntity previous = getTarget();
         super.setTarget(target);
         if (this.level().isClientSide) return;
+        LivingEntity acquired = getTarget();
+        if (acquired != null && acquired != previous) tactics.engage();
         AttributeInstance speed = getAttribute(Attributes.MOVEMENT_SPEED);
         if (speed == null) return;
         boolean boosted = speed.getModifier(ENGAGED_SPEED_ID) != null;
-        if (target != null && !boosted) {
+        if (acquired != null && !boosted) {
             speed.addTransientModifier(new AttributeModifier(ENGAGED_SPEED_ID, ENGAGED_SPEED_BONUS, AttributeModifier.Operation.ADD_VALUE));
-        } else if (target == null && boosted) {
+        } else if (acquired == null && boosted) {
             speed.removeModifier(ENGAGED_SPEED_ID);
         }
     }
@@ -377,14 +381,13 @@ public class Basilisk extends Monster {
         this.setXxa(0.0F);
     }
 
-    /** @param cause the player who triggered it (proximity) or the attacker; becomes the target. Null: rested enough. */
-    private void wake(@Nullable LivingEntity cause) {
+    /** Acquisition and retaliation remain owned by the target goals when a sleeper wakes. */
+    private void wake(boolean disturbed) {
         setAsleep(false);
         groggyTicks = WAKE_GROGGY_TICKS;
         awakeTicks = -1;
         restTicks = -1;
-        this.playSound(BasiliskEntities.SND_REAR.get(), cause != null ? 1.4F : 0.6F, 0.9F + this.random.nextFloat() * 0.2F);
-        if (cause != null) setTarget(cause);
+        this.playSound(BasiliskEntities.SND_AMBIENT.get(), disturbed ? 1.4F : 0.6F, 0.9F + this.random.nextFloat() * 0.2F);
     }
 
     /**
@@ -400,12 +403,12 @@ public class Basilisk extends Monster {
             if (this.tickCount % WAKE_CHECK_TICKS == 0) {
                 Player p = this.level().getNearestPlayer(getX(), getY(), getZ(), WAKE_RADIUS_SPRINT, EntitySelector.NO_CREATIVE_OR_SPECTATOR);
                 if (p != null && distanceTo(p) <= wakeRadius(p)) {
-                    wake(p);
+                    wake(true);
                     return;
                 }
             }
             if (restTicks < 0) restTicks = tuning.ticksBetween(Dial.REST_MIN, Dial.REST_MAX, this.random);
-            if (restTicks > 0 && --restTicks == 0) wake(null);
+            if (restTicks > 0 && --restTicks == 0) wake(false);
             return;
         }
         if (awakeTicks < 0) awakeTicks = tuning.ticksBetween(Dial.AWAKE_MIN, Dial.AWAKE_MAX, this.random);
@@ -424,7 +427,7 @@ public class Basilisk extends Monster {
         boolean wasAsleep = isAsleep();
         boolean hurt = super.hurt(source, amount);
         if (hurt && wasAsleep && !this.level().isClientSide) {
-            wake(source.getEntity() instanceof LivingEntity attacker ? attacker : null);
+            wake(true);
         }
         return hurt;
     }
@@ -552,9 +555,7 @@ public class Basilisk extends Monster {
         } else {
             if (this.tickCount % 40 == 0) refreshLeafMalus();
             chewFoliage();
-            if (this.tickCount % 14 == 0 && onGround() && getDeltaMovement().horizontalDistanceSqr() > 0.0009D) {
-                this.playSound(BasiliskEntities.SND_SLITHER.get(), 0.5F, 0.9F + this.random.nextFloat() * 0.3F);
-            }
+            trail.tick((ServerLevel) level(), this);
         }
     }
 
@@ -603,7 +604,7 @@ public class Basilisk extends Monster {
         LivingEntity target = getTarget();
         return this.tickCount < climbUntil
             || this.getMoveControl().getWantedY() > getY() + CLIMB_WANTED_Y
-            || (target != null && target.getY() > getY() + CLIMB_TARGET_Y);
+            || (target != null && target.getY() > getY() + CLIMB_TARGET_Y && getSensing().hasLineOfSight(target));
     }
 
     /** Called by the stuck fallback: climb the wall in front for a moment even if the target is not above. */
