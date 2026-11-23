@@ -44,6 +44,11 @@
         "where": "underground"
       },
       "palette": {
+        "bowl_plants": [
+          {"Name": "minecraft:moss_carpet"},
+          {"Name": "minecraft:short_grass"},
+          {"Name": "minecraft:fern"}
+        ],
         "body": {
           "type": "minecraft:simple_state_provider",
           "state": {
@@ -332,6 +337,11 @@
         "edge": 0.4
       },
       "palette": {
+        "bowl_plants": [
+          {"Name": "minecraft:fern"},
+          {"Name": "minecraft:short_grass"},
+          {"Name": "minecraft:moss_carpet"}
+        ],
         "body": {
           "type": "minecraft:simple_state_provider",
           "state": {
@@ -1045,6 +1055,11 @@
         "large": 2
       },
       "palette": {
+        "bowl_plants": [
+          {"Name": "minecraft:fern"},
+          {"Name": "minecraft:moss_carpet"},
+          {"Name": "minecraft:brown_mushroom"}
+        ],
         "body": {
           "type": "minecraft:simple_state_provider",
           "state": {
@@ -2046,6 +2061,11 @@
         "near": "#verdant_deep:near/birch"
       },
       "palette": {
+        "bowl_plants": [
+          {"Name": "minecraft:short_grass"},
+          {"Name": "minecraft:azure_bluet"},
+          {"Name": "minecraft:oxeye_daisy"}
+        ],
         "top": [
           {
             "thickness": 1,
@@ -2338,6 +2358,11 @@
         "large": 1.6
       },
       "palette": {
+        "bowl_plants": [
+          {"Name": "minecraft:fern"},
+          {"Name": "minecraft:brown_mushroom"},
+          {"Name": "minecraft:sweet_berry_bush"}
+        ],
         "top": [
           {
             "thickness": 1,
@@ -2688,6 +2713,9 @@
         "near": "#verdant_deep:near/badlands"
       },
       "palette": {
+        "bowl_plants": [
+          {"Name": "minecraft:dead_bush"}
+        ],
         "top": [
           {
             "thickness": 1,
@@ -2982,6 +3010,10 @@
         "large": 1.6
       },
       "palette": {
+        "bowl_plants": [
+          {"Name": "minecraft:pink_petals"},
+          {"Name": "minecraft:short_grass"}
+        ],
         "top": [
           {
             "thickness": 1,
@@ -3334,6 +3366,11 @@
         "near": "#verdant_deep:near/lake"
       },
       "palette": {
+        "bowl_plants": [
+          {"Name": "minecraft:short_grass"},
+          {"Name": "minecraft:fern"},
+          {"Name": "minecraft:moss_carpet"}
+        ],
         "top": [
           {
             "thickness": 1,
@@ -3838,5 +3875,43 @@
   "sun": {
     "margin": 4,
     "fade": 8
+  },
+  "wall_bowls": {
+    "min_leak": 3,
+    "drop": {
+      "min_inclusive": 3,
+      "max_inclusive": 6
+    },
+    "search": 12,
+    "margin": 2,
+    "clearance": 3,
+    "lava_clearance": 6,
+    "fire_clearance": 3,
+    "lava_rock": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "data": {
+            "Name": "minecraft:basalt",
+            "Properties": {
+              "axis": "y"
+            }
+          },
+          "weight": 3
+        },
+        {
+          "data": {
+            "Name": "minecraft:blackstone"
+          },
+          "weight": 2
+        },
+        {
+          "data": {
+            "Name": "minecraft:smooth_basalt"
+          },
+          "weight": 1
+        }
+      ]
+    }
   }
 }

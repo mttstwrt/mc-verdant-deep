@@ -296,6 +296,55 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
         }));
     }
 
+    /** The bowls that catch what the wall of the hole whose cell holds {@code (x, z)} lets out, if the hole has a wall that does. */
+    public Optional<WallBowlSettings> wallBowlsAt(int x, int z) {
+        return settings.dressing().wallBowls().filter(found -> holeAt(x, z).isPresent());
+    }
+
+    /**
+     * Whether a block is the terrain's own and not this hole's: outside its open air and away from its discs' rock and its
+     * falls, so that fluid there is the terrain's and not a pond or a fall the hole made.
+     */
+    public boolean isTerrainAt(int x, int y, int z) {
+        if (compute(new DensityFunction.SinglePointContext(x, y, z)) <= 0) {
+            return false;
+        }
+        Optional<Hole> found = holeAt(x, z);
+        if (found.isEmpty()) {
+            return true;
+        }
+        CellDiscs cellDiscs = discsOf(found.get());
+        if (cellDiscs.falls().isNear(x, y, z)) {
+            return false;
+        }
+        for (Disc disc : cellDiscs.layout().near(x, z)) {
+            if (disc.rockDistance(settings.discs(), x + 0.5, y + 0.5, z + 0.5) <= 1) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * How far a block is from what a hole's leaks must keep off, up to {@code cap}: the rock of a disc, the wood of a root, the
+     * water of a fall (0 in or by one). {@code cap} where the column has no hole.
+     */
+    public double clearanceAt(int x, int y, int z, double cap) {
+        Optional<Hole> found = holeAt(x, z);
+        if (found.isEmpty()) {
+            return cap;
+        }
+        CellDiscs cellDiscs = discsOf(found.get());
+        if (cellDiscs.falls().isNear(x, y, z)) {
+            return 0;
+        }
+        double nearest = cellDiscs.roots().surfaceDistance(x + 0.5, y + 0.5, z + 0.5, cap);
+        for (Disc disc : cellDiscs.layout().near(x, z)) {
+            nearest = Math.min(nearest, disc.rockDistance(settings.discs(), x + 0.5, y + 0.5, z + 0.5));
+        }
+        return Math.clamp(nearest, 0, cap);
+    }
+
     /**
      * Calls {@code sink} with every block that is root in the chunk whose lowest corner is {@code (minX, minZ)}, between
      * {@code minY} and {@code maxY} (exclusive). See {@link RootBlocks}.
@@ -344,6 +393,30 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
                         .filter(site -> site.x() >= minX && site.x() < minX + CHUNK_SIZE && site.z() >= minZ && site.z() < minZ + CHUNK_SIZE)
                         .toList())
                 .orElse(List.of());
+    }
+
+    Optional<DiscPalette> bowlPaletteAt(int x, int y, int z) {
+        Optional<Hole> hole = holeAt(x, z);
+        if (hole.isEmpty()) {
+            return Optional.empty();
+        }
+        CellDiscs cell = discsOf(hole.get());
+        List<Disc> discs = cell.layout().discs();
+        DiscPalette nearest = null;
+        double best = 40 * 40;
+        for (int i = 0; i < discs.size(); i++) {
+            DiscPalette palette = cell.themes().get(i).map(DiscTheme::palette).orElse(null);
+            Disc disc = discs.get(i);
+            double fromAxis = Math.hypot(x - disc.x(), z - disc.z());
+            double across = Math.max(0, fromAxis - disc.radius());
+            double height = y - disc.topAt(Math.min(fromAxis, disc.radius()));
+            double distance = across * across + height * height;
+            if (distance < best) {
+                best = distance;
+                nearest = palette;
+            }
+        }
+        return Optional.ofNullable(nearest);
     }
 
     /**

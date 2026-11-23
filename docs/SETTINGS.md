@@ -700,6 +700,41 @@ to where it lands (leaves take the place of water, so a bush hung from a rim bes
 stays level by the water. To have none, take the block out or turn the `falls` dial to 0; for more, the dial or the block's
 `count`.
 
+### Wall bowls
+
+`wall_bowls` (optional, see `WallBowlSettings`, VRD-014) is what becomes of the terrain's water and lava where a hole's wall
+cuts into it: aquifers, lava pockets, underground lakes and vanilla's springs. Without the block the wall lets them pour into
+the hole as before. With it, each still block of the terrain's fluid beside the hole's open air (or below it) is a leak, leaks
+whose outlets lie within 2 blocks of each other are one outflow, and each outflow is either caught or plugged, once the chunk's
+decoration is done and before anything flows (`compat/WallBowls.java`):
+
+- Caught: an outflow of at least `min_leak` (3) blocks whose fluid falls clear down the wall gets a pool of the same fluid
+  `drop` (3 to 6) blocks under its lowest outlet, or up to `search` (12) blocks lower where that does not fit. The pool is
+  every block within `margin` (2) of a fall, so a row of falls down a wall gets a trough along it. It is held by a rim two
+  blocks high and a dish under it that thins out from the falls, both of the wall's own rock (the solid block most common
+  round the leaks) for water and of `lava_rock` (basalt, blackstone, smooth basalt) for lava; where the terrain's rock is
+  already there, it is the rim. One connected basin needs a two-by-three block join to solid terrain. Where the wall is
+  close behind or beneath the catch, the join forms a short ledge. Across a deeper recess it forms a tapered buttress
+  of wall rock. Where the rock face is in reach, the rear lip extends into it across several columns and thickens toward
+  the wall. A catch with no suitable join is tried lower down or plugged. Falling fluid that lands in still fluid does
+  not spread.
+  The pool and wall join keep `clearance` (3; lava `lava_clearance`, 6) from a disc's rock, a root and a fall's water.
+  The drop has its own 1.5-block buffer. Nothing lava sets alight lies within `fire_clearance` (3) of a lava pool
+  or drop. Pointed dripstone, vines and other replaceable plants can be cleared. Stable solid blocks can serve as the basin edge.
+  Columns of an outflow that land on the wall before the pool are plugged and the rest is caught.
+  A water catch can also have a dry shelf at rim height, made of the wall's rock. It leaves the cup's lip nearest the
+  wall and runs 7 to 11 blocks along the face, one lane at a time. Each lane starts at the face and sticks out 4 to 6
+  blocks by the cup, a block more or less from lane to lane, narrowing over the far third. The shelf ends where the face
+  turns away by more than a block between lanes or a lane cannot keep two blocks of headroom. It needs at least three
+  lanes and 12 floor blocks, and nothing sticks out from the cup into the open hole. Under the floor the rock is deepest
+  at the face (one more than the lane's depth) and runs out toward the front. Near the face it carries on down to the
+  wall where the wall slopes under it. The shelf checks the basin, other drops, roots and discs.
+- Plugged: an outflow too small (a lone spring), too wide, or with no room for a bowl has its leaking blocks given the
+  wall's rock. So is fluid beside a cave of the terrain's within the hole's edge falloff (8 blocks) of its open air: such caves
+  often open into the hole, and where their water comes out is not known.
+
+The hole's own springs (`falls.springs`) are left to run.
+
 ### Gas
 
 Gas is a haze through each hole, mist, spray at the falls, swamp breath, smoke off lava and a violet shimmer, placed by the

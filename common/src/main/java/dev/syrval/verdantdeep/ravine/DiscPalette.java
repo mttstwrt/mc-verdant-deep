@@ -4,6 +4,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.List;
 import java.util.Optional;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider;
 
 /**
@@ -15,8 +16,10 @@ import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvi
  * @param underside layers counted up from the platform's bottom face; where the platform is too thin for both, the top's win
  * @param body      the rest of the platform
  * @param stem      the stem, or the root of a hanging disc
+ * @param bowlPlants low ground cover this disc lends to nearby plunge pools
  */
-public record DiscPalette(List<Layer> top, List<Layer> underside, Optional<BlockStateProvider> body, Stem stem) {
+public record DiscPalette(List<Layer> top, List<Layer> underside, Optional<BlockStateProvider> body, Stem stem,
+                          List<BlockState> bowlPlants) {
     static final DiscPalette UNPAINTED = new DiscPalette(List.of(), List.of(), Optional.empty(), Stem.UNPAINTED);
 
 
@@ -48,12 +51,18 @@ public record DiscPalette(List<Layer> top, List<Layer> underside, Optional<Block
             Layer.CODEC.listOf().optionalFieldOf("top", List.of()).forGetter(DiscPalette::top),
             Layer.CODEC.listOf().optionalFieldOf("underside", List.of()).forGetter(DiscPalette::underside),
             BlockStateProvider.CODEC.optionalFieldOf("body").forGetter(DiscPalette::body),
-            Stem.CODEC.optionalFieldOf("stem", Stem.UNPAINTED).forGetter(DiscPalette::stem)
+            Stem.CODEC.optionalFieldOf("stem", Stem.UNPAINTED).forGetter(DiscPalette::stem),
+            BlockState.CODEC.listOf().optionalFieldOf("bowl_plants", List.of()).forGetter(DiscPalette::bowlPlants)
     ).apply(i, DiscPalette::new));
 
     public DiscPalette {
         top = List.copyOf(top);
         underside = List.copyOf(underside);
+        bowlPlants = List.copyOf(bowlPlants);
+    }
+
+    public DiscPalette(List<Layer> top, List<Layer> underside, Optional<BlockStateProvider> body, Stem stem) {
+        this(top, underside, body, stem, List.of());
     }
 
     /** The material at a point of a disc, or empty where this palette leaves the terrain's own rock. */

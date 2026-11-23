@@ -81,6 +81,40 @@ final class RootLayout {
     }
 
     /** The stretches of root that come into the chunk whose lowest corner is {@code (minX, minZ)}, in the roots' order. */
+    /**
+     * How far a point is from the wood of the nearest root, up to {@code cap}: 0 inside a root, {@code cap} where none is
+     * nearer. Looks at the stretches indexed for the chunks the cap reaches into.
+     */
+    double surfaceDistance(double x, double y, double z, double cap) {
+        double nearest = cap;
+        int fromX = Math.floorDiv((int) Math.floor(x - cap), CHUNK_SIZE);
+        int toX = Math.floorDiv((int) Math.floor(x + cap), CHUNK_SIZE);
+        int fromZ = Math.floorDiv((int) Math.floor(z - cap), CHUNK_SIZE);
+        int toZ = Math.floorDiv((int) Math.floor(z + cap), CHUNK_SIZE);
+        for (int chunkX = fromX; chunkX <= toX; chunkX++) {
+            for (int chunkZ = fromZ; chunkZ <= toZ; chunkZ++) {
+                for (Stretch stretch : near(chunkX * CHUNK_SIZE, chunkZ * CHUNK_SIZE)) {
+                    List<Root.Knot> knots = roots.get(stretch.root()).knots();
+                    nearest = Math.min(nearest, distanceTo(knots.get(stretch.knot()), knots.get(stretch.knot() + 1), x, y, z));
+                }
+            }
+        }
+        return Math.max(nearest, 0);
+    }
+
+    // From a point to the surface of a stretch: the line between its knots, thickened by their radii in between.
+    private static double distanceTo(Root.Knot from, Root.Knot to, double x, double y, double z) {
+        double dx = to.x() - from.x();
+        double dy = to.y() - from.y();
+        double dz = to.z() - from.z();
+        double length = dx * dx + dy * dy + dz * dz;
+        double t = length == 0 ? 0 : Math.clamp(((x - from.x()) * dx + (y - from.y()) * dy + (z - from.z()) * dz) / length, 0, 1);
+        double ox = from.x() + dx * t - x;
+        double oy = from.y() + dy * t - y;
+        double oz = from.z() + dz * t - z;
+        return Math.sqrt(ox * ox + oy * oy + oz * oz) - (from.radius() + (to.radius() - from.radius()) * t);
+    }
+
     List<Stretch> near(int minX, int minZ) {
         int chunkX = Math.floorDiv(minX, CHUNK_SIZE) - firstX;
         int chunkZ = Math.floorDiv(minZ, CHUNK_SIZE) - firstZ;
