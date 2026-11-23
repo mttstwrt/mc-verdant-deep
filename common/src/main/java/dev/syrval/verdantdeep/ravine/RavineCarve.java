@@ -207,9 +207,9 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
     /**
      * How far down its hole a point is measured from the mouth's edge on the point's own side, 0 at that edge to 1 at the floor,
      * or empty if the point is less than {@code below} blocks under the edge or outside the hole's open air and its discs' domes
-     * by more than {@code margin}. On a sloping mouth the uphill side's edge stands above the top, so the bowl under it counts.
+     * by more than {@code margin}. Points supported by a surface shelf are excluded, including below the uphill lip.
      */
-    public OptionalDouble rimDepthShareIn(int x, int y, int z, double below, double margin) {
+    public OptionalDouble interiorRimDepthShareIn(int x, int y, int z, double below, double margin) {
         Optional<Hole> found = holeAt(x, z);
         if (found.isEmpty()) {
             return OptionalDouble.empty();
@@ -219,7 +219,11 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
         if (y > edge - below) {
             return OptionalDouble.empty();
         }
-        double distance = RavineShape.signedDistance(settings, hole.bounds(), hole.cell(), discsOf(hole).layout(), x, y, z);
+        CellDiscs discs = discsOf(hole);
+        if (discs.hasSurfaceGroundAt(settings.discs(), x, y - 1, z)) {
+            return OptionalDouble.empty();
+        }
+        double distance = RavineShape.signedDistance(settings, hole.bounds(), hole.cell(), discs.layout(), x, y, z);
         if (distance > margin) {
             return OptionalDouble.empty();
         }

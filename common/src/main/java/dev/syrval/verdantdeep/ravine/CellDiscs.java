@@ -99,6 +99,23 @@ record CellDiscs(
         return which == DiscSites.RUINS ? ruins : troves;
     }
 
+    /** Checks the supporting block against each nearby surface platform and its relief, even under another shelf. */
+    boolean hasSurfaceGroundAt(DiscShape shape, int x, int y, int z) {
+        for (Disc disc : layout.near(x, z)) {
+            if (y <= disc.floor() - shape.floorThickness() || !layout.isSurface(disc)) {
+                continue;
+            }
+            double fromAxis = Math.hypot(x - disc.x(), z - disc.z());
+            if (fromAxis >= disc.radius() || y <= disc.undersideAt(shape, fromAxis)) {
+                continue;
+            }
+            if (y <= disc.topBlockAt(fromAxis) || y <= grounds.get(layout.discs().indexOf(disc)).topBlockAt(x, z)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * The disc a point belongs to, among those whose theme has a biome: the point is in the disc's dome or platform or within
      * {@code margin} of them. Where the spaces of several discs overlap, the highest disc has it, which is the one a rider

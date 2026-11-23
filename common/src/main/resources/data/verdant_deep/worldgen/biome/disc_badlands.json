@@ -29,14 +29,6 @@
     "misc": [],
     "monster": [],
     "underground_water_creature": [],
-    "verdant_deep:roaming_boss": [
-      {
-        "type": "verdant_deep:basilisk",
-        "maxCount": 1,
-        "minCount": 1,
-        "weight": 1
-      }
-    ],
     "water_ambient": [],
     "water_creature": []
   },

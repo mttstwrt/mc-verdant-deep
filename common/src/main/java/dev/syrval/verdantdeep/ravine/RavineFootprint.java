@@ -41,7 +41,7 @@ public interface RavineFootprint {
         }
 
         @Override
-        public OptionalDouble rimDepthShareIn(int x, int y, int z, double below, double margin) {
+        public OptionalDouble interiorRimDepthShareIn(int x, int y, int z, double below, double margin) {
             return OptionalDouble.empty();
         }
 
@@ -116,9 +116,9 @@ public interface RavineFootprint {
 
     /**
      * How far down a hole a point is, 0 at the mouth's edge on its side to 1 at the floor, or empty if it is less than
-     * {@code below} blocks under that edge or outside every hole by more than {@code margin}.
+     * {@code below} blocks under that edge, outside every hole by more than {@code margin}, or on a surface shelf.
      */
-    OptionalDouble rimDepthShareIn(int x, int y, int z, double below, double margin);
+    OptionalDouble interiorRimDepthShareIn(int x, int y, int z, double below, double margin);
 
     /**
      * Calls {@code sink} with every block that takes a disc's material in the chunk whose lowest corner is {@code (minX, minZ)},
@@ -360,9 +360,9 @@ public interface RavineFootprint {
             }
 
             @Override
-            public OptionalDouble rimDepthShareIn(int x, int y, int z, double below, double margin) {
+            public OptionalDouble interiorRimDepthShareIn(int x, int y, int z, double below, double margin) {
                 for (Region region : copy) {
-                    OptionalDouble share = region.carve().rimDepthShareIn(x, y, z, below, margin);
+                    OptionalDouble share = region.carve().interiorRimDepthShareIn(x, y, z, below, margin);
                     if (share.isPresent()) {
                         return share;
                     }

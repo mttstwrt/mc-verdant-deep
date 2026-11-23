@@ -19,7 +19,7 @@ import net.minecraft.world.phys.AABB;
 
 /**
  * Natural spawn rule of the basilisk: only in a hole's open air from just under the mouth's edge down, more likely toward the
- * floor, never near another. The surface outside the hole, and the bowl above the mouth's edge, stay clear of them. Whether the
+ * floor, never near another. The surface shelves stay clear even where they extend below the mouth's edge. Whether the
  * whole body fits is checked afterwards by {@code Basilisk.checkSpawnObstruction}, once its size is known.
  */
 public final class BasiliskSpawning {
@@ -40,7 +40,8 @@ public final class BasiliskSpawning {
         }
         BasiliskTuning tuning = BasiliskTuning.get();
         ServerLevel level = accessor.getLevel();
-        OptionalDouble depth = RavineFootprintHolder.of(level).rimDepthShareIn(pos.getX(), pos.getY(), pos.getZ(), tuning.get(Dial.SPAWN_BELOW_RIM), MARGIN);
+        OptionalDouble depth = RavineFootprintHolder.of(level).interiorRimDepthShareIn(
+                pos.getX(), pos.getY(), pos.getZ(), tuning.get(Dial.SPAWN_BELOW_RIM), MARGIN);
         if (depth.isEmpty() || keepRoll(level, pos) >= chance(tuning, depth.getAsDouble())) {
             return false;
         }
