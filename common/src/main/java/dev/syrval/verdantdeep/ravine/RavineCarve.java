@@ -429,6 +429,30 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
                 .orElse(List.of());
     }
 
+    Optional<DiscPalette> bowlPaletteAt(int x, int y, int z) {
+        Optional<Hole> hole = holeAt(x, z);
+        if (hole.isEmpty()) {
+            return Optional.empty();
+        }
+        CellDiscs cell = discsOf(hole.get());
+        List<Disc> discs = cell.layout().discs();
+        DiscPalette nearest = null;
+        double best = 40 * 40;
+        for (int i = 0; i < discs.size(); i++) {
+            DiscPalette palette = cell.themes().get(i).map(DiscTheme::palette).orElse(null);
+            Disc disc = discs.get(i);
+            double fromAxis = Math.hypot(x - disc.x(), z - disc.z());
+            double across = Math.max(0, fromAxis - disc.radius());
+            double height = y - disc.topAt(Math.min(fromAxis, disc.radius()));
+            double distance = across * across + height * height;
+            if (distance < best) {
+                best = distance;
+                nearest = palette;
+            }
+        }
+        return Optional.ofNullable(nearest);
+    }
+
     /**
      * The biome of the disc a point belongs to (see {@link CellDiscs#ownerAt}), if there is one: the point is in the disc's
      * dome or platform, or within a margin of them.

@@ -9,6 +9,7 @@ import java.util.function.Function;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.DensityFunction;
 
 /** What a level's ravines do to the world around them, as seen by noise fill, biome assignment, disc materials, roots, growth and structures. */
@@ -222,6 +223,10 @@ public interface RavineFootprint {
         return Optional.empty();
     }
 
+    default List<BlockState> bowlPlantsAt(int x, int y, int z) {
+        return List.of();
+    }
+
     /** Whether a block is the terrain's own, outside every hole's open air, discs and falls (see {@link RavineCarve#isTerrainAt}). */
     default boolean isTerrainAt(int x, int y, int z) {
         return true;
@@ -311,6 +316,16 @@ public interface RavineFootprint {
                     }
                 }
                 return Optional.empty();
+            }
+
+            @Override
+            public List<BlockState> bowlPlantsAt(int x, int y, int z) {
+                for (Region region : copy) {
+                    if (region.carve().wallBowlsAt(x, z).isPresent()) {
+                        return region.carve().bowlPaletteAt(x, y, z).map(DiscPalette::bowlPlants).orElse(List.of());
+                    }
+                }
+                return List.of();
             }
 
             @Override

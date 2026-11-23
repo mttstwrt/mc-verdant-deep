@@ -65,7 +65,7 @@ final class WallBowls {
     private record Bowl(int level, List<BlockPos> pool, List<BlockPos> rim, List<BlockPos> dish, WallBowlSupport support,
                         WallBowlSupport.Shoulders shoulders, LongSet outline) {}
 
-    private record BodySite(Bowl bowl, BlockState rock, double clearance) {}
+    private record BodySite(Bowl bowl, BlockState rock, double clearance, boolean lava) {}
 
     private WallBowls() {}
 
@@ -107,6 +107,10 @@ final class WallBowls {
             if (!blocks.isEmpty()) {
                 VerdantDeep.LOGGER.debug("Wall bowl {} at {} body={}", settings.profile().getSerializedName(),
                         bowl.pool().getFirst().toShortString(), blocks);
+            }
+            if (!site.lava()) {
+                WallBowlLip.plant(level, footprint, chunkPos, bowl.pool().getFirst(), bowl.rim(), bowl.outline(),
+                        bowl.level() + RIM_HEIGHT - 1, site.rock(), site.clearance(), settings.fireClearance());
             }
         }
     }
@@ -282,7 +286,7 @@ final class WallBowls {
                 continue;
             }
             BlockState rock = build(level, bowl, falling, lava, settings, draws);
-            bodies.add(new BodySite(bowl, rock, Math.max(1, clearance)));
+            bodies.add(new BodySite(bowl, rock, Math.max(1, clearance), lava));
             if (!blocked.isEmpty()) {
                 plug(level, blocked);
             }
