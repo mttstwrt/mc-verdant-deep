@@ -3,6 +3,7 @@ package dev.syrval.verdantdeep.ravine;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.util.InclusiveRange;
+import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider;
 
 /**
@@ -24,10 +25,26 @@ import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvi
  * @param fireClearance the least distance between lava, falling or held, and anything lava sets alight; a water bowl is the
  *                      wall's own rock, a lava bowl is {@code lavaRock}
  * @param lavaRock      what a lava bowl is made of
+ * @param profile       the shape of the native rock joining the underside to the wall
  */
 public record WallBowlSettings(
         int minLeak, InclusiveRange<Integer> drop, int search, int margin, double clearance, double lavaClearance, int fireClearance,
-        BlockStateProvider lavaRock) {
+        BlockStateProvider lavaRock, Profile profile) {
+    public enum Profile implements StringRepresentable {
+        SCONCE("sconce"), CANTILEVER("cantilever");
+
+        private final String name;
+
+        Profile(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public String getSerializedName() {
+            return name;
+        }
+    }
+
     /** The farthest anything is looked for from an outflow, which keeps a bowl within the chunks round the leak's. */
     public static final int MOST_REACH = 12;
 
@@ -39,6 +56,7 @@ public record WallBowlSettings(
             Codec.doubleRange(0, 8).fieldOf("clearance").forGetter(WallBowlSettings::clearance),
             Codec.doubleRange(0, 8).fieldOf("lava_clearance").forGetter(WallBowlSettings::lavaClearance),
             Codec.intRange(0, 4).fieldOf("fire_clearance").forGetter(WallBowlSettings::fireClearance),
-            BlockStateProvider.CODEC.fieldOf("lava_rock").forGetter(WallBowlSettings::lavaRock)
+            BlockStateProvider.CODEC.fieldOf("lava_rock").forGetter(WallBowlSettings::lavaRock),
+            StringRepresentable.fromEnum(Profile::values).optionalFieldOf("profile", Profile.SCONCE).forGetter(WallBowlSettings::profile)
     ).apply(i, WallBowlSettings::new));
 }

@@ -63,10 +63,9 @@ final class WallBowls {
     private enum Outcome { BOWL, INDIRECT, SMALL, WIDE, NO_CLEAR_FALL, NO_ROOM, NEAR_FIRE }
 
     private record Bowl(int level, List<BlockPos> pool, List<BlockPos> rim, List<BlockPos> dish, WallBowlSupport support,
-                        WallBowlSupport.Shoulders shoulders, LongSet rimColumns) {}
+                        WallBowlSupport.Shoulders shoulders, LongSet outline) {}
 
-    // A water catch that may still get a dry shelf once every outflow round it is caught or plugged.
-    private record ShelfSite(Bowl bowl, BlockState rock, double clearance) {}
+    private record BodySite(Bowl bowl, BlockState rock, double clearance) {}
 
     private WallBowls() {}
 
@@ -78,37 +77,37 @@ final class WallBowls {
         WallBowlSettings settings = found.get();
         List<Leak> leaks = findLeaks(level, footprint, chunkPos, springsNear(footprint, chunkPos));
         var why = new StringBuilder();
-        List<ShelfSite> shelves = new ArrayList<>();
-        LongSet caught = new LongOpenHashSet();
+        List<BodySite> bodies = new ArrayList<>();
         for (List<Leak> outflow : outflows(leaks)) {
             why.setLength(0);
             Outcome outcome = outflow.getFirst().indirect() ? Outcome.INDIRECT
                     : outflow.size() < settings.minLeak() ? Outcome.SMALL
                     : outflow.size() > MOST_LEAKS ? Outcome.WIDE
-                    : tryBowl(level, footprint, chunkPos, settings, outflow, draws, why, shelves, caught);
+                    : tryBowl(level, footprint, chunkPos, settings, outflow, draws, why, bodies);
             if (outcome != Outcome.BOWL) {
                 plug(level, outflow);
             }
             VerdantDeep.LOGGER.debug("Wall outflow of {} {} blocks at {}: {}{}",
                     outflow.size(), outflow.getFirst().lava() ? "lava" : "water", outflow.getFirst().outlet().toShortString(), outcome, why);
         }
-        // Shelves come last, so their room check sees this chunk's plugs and catches instead of water about to be shut in.
-        var room = new WallBowlTerrace.Room(caught, settings.margin() + 2, settings.drop().maxInclusive() + settings.search());
-        for (ShelfSite site : shelves) {
-            buildShelf(level, footprint, chunkPos, site, room);
-        }
-    }
-
-    private static void buildShelf(WorldGenLevel level, RavineFootprint footprint, ChunkPos chunk, ShelfSite site, WallBowlTerrace.Room room) {
-        Bowl bowl = site.bowl();
-        WallBowlTerrace terrace = WallBowlTerrace.fit(level, footprint, chunk, bowl.rimColumns(), bowl.rim(), bowl.level() + RIM_HEIGHT - 1,
-                bowl.shoulders().wall(), site.clearance(), room);
-        for (BlockPos each : terrace.blocks()) {
-            level.setBlock(each, site.rock(), Block.UPDATE_CLIENTS);
-        }
-        if (!terrace.walkable().isEmpty()) {
-            VerdantDeep.LOGGER.debug("Wall terrace at {} floor={} blocks={}", bowl.pool().getFirst().toShortString(),
-                    terrace.walkable(), terrace.blocks());
+        // Fit the underside after the accepted basins and plugs are in place.
+        for (BodySite site : bodies) {
+            Bowl bowl = site.bowl();
+            var shell = new LongOpenHashSet();
+            for (List<BlockPos> part : List.of(bowl.dish(), bowl.support().blocks(), bowl.shoulders().blocks())) {
+                for (BlockPos pos : part) {
+                    shell.add(pos.asLong());
+                }
+            }
+            List<BlockPos> blocks = WallBowlBody.fit(level, footprint, chunkPos, settings.profile(), bowl.outline(),
+                    shell, bowl.level(), bowl.shoulders().wall(), site.clearance());
+            for (BlockPos pos : blocks) {
+                level.setBlock(pos, site.rock(), Block.UPDATE_CLIENTS);
+            }
+            if (!blocks.isEmpty()) {
+                VerdantDeep.LOGGER.debug("Wall bowl {} at {} body={}", settings.profile().getSerializedName(),
+                        bowl.pool().getFirst().toShortString(), blocks);
+            }
         }
     }
 
@@ -229,7 +228,7 @@ final class WallBowls {
 
     private static Outcome tryBowl(
             WorldGenLevel level, RavineFootprint footprint, ChunkPos chunk, WallBowlSettings settings, List<Leak> outflow,
-            WorldgenRandom draws, StringBuilder why, List<ShelfSite> shelves, LongSet caught) {
+            WorldgenRandom draws, StringBuilder why, List<BodySite> bodies) {
         boolean lava = outflow.getFirst().lava();
         double clearance = lava ? settings.lavaClearance() : settings.clearance();
         int drop = draws.nextIntBetweenInclusive(settings.drop().minInclusive(), settings.drop().maxInclusive());
@@ -283,15 +282,7 @@ final class WallBowls {
                 continue;
             }
             BlockState rock = build(level, bowl, falling, lava, settings, draws);
-            for (Leak leak : falling) {
-                caught.add(leak.fluid().asLong());
-            }
-            for (BlockPos each : bowl.pool()) {
-                caught.add(each.asLong());
-            }
-            if (!lava) {
-                shelves.add(new ShelfSite(bowl, rock, Math.max(2, clearance)));
-            }
+            bodies.add(new BodySite(bowl, rock, Math.max(1, clearance)));
             if (!blocked.isEmpty()) {
                 plug(level, blocked);
             }
@@ -408,7 +399,7 @@ final class WallBowls {
             poolBlocks.add(BlockPos.of(each));
         }
         WallBowlSupport.Shoulders shoulders = support.shoulders(level, footprint, chunk, rimColumns, dish, clearance);
-        return Optional.of(new Bowl(pool, poolBlocks, rim, dish, support, shoulders, rimColumns));
+        return Optional.of(new Bowl(pool, poolBlocks, rim, dish, support, shoulders, under));
     }
 
     private static boolean isConnected(LongSet unvisited, int height) {
@@ -508,7 +499,7 @@ final class WallBowls {
         return true;
     }
 
-    // Returns the wall's rock, which a later shelf is made of too.
+    // The underside uses native rock even when the fluid-facing shell is basalt.
     private static BlockState build(WorldGenLevel level, Bowl bowl, List<Leak> outflow, boolean lava,
             WallBowlSettings settings, WorldgenRandom draws) {
         BlockState wallRock = wallRockOf(level, outflow);
