@@ -496,16 +496,13 @@ it fills, and a tree started under one grows as tall as there is room):
 
 - `giant_mushroom_red` (jungle) and `giant_mushroom_brown` (mangrove): vanilla's two huge mushrooms with caps a block wider
   each way. In groves (`patches`).
-- `giant_pad` (jungle and mangrove): a flat round leaf of moss nine blocks across on a stalk of bamboo block, 4 to 6 blocks
-  up and now and then twice that. It is the brown mushroom's own feature with other blocks. Its `rim_fade` has `to` 4, so
-  it grows four times as often by the rim, where its leaf hangs out over the edge.
 - `glow_bulb` (jungle and lush) and `glow_bulb_swamp` (mangrove): a stalk of bamboo block 10 to 14 tall with a bud on it,
   a cross of five lights with a leaf on every side of each: shroomlights in azalea leaves, or froglights of all three
   colours in mangrove leaves. A tree feature, so it stands on any ground and puts a block of moss under itself. To the
   feature the lights are its foliage, and the leaves are six `attached_to_leaves` decorators, one for each direction; it
   needs 9 blocks of clear air, so none grows under a low dome.
 
-For the mushrooms and the pad, `every` is places tried, and most tries come to nothing: the game grows one only on soil (grass,
+For the mushrooms, `every` is places tried, and most tries come to nothing: the game grows one only on soil (grass,
 dirt, podzol, moss, mud; not the jungle's brick floors, not stone, not in water) and only where every block its cap will take
 is air or leaves, so not under a low part of a dome and not where a tree of the chunk next door already stands in the
 way. A bulb stands on any ground but wants 9 blocks of clear air over it, and about one in six grows, one in five on a lush
@@ -568,7 +565,7 @@ Three settings keep a disc's plants from ending in a wall at its edge and from l
     the view from the rim.
 - `rim_fade` in a `growth` entry changes how often it grows over the last `width` blocks before the rim: steadily from its
   usual rate to `to` times that at the rim. The jungle's trees have `to` 0.15 over `width` 10, which leaves their crowns
-  ending at different distances from the edge; a `to` over 1 gathers a growth there instead, as the pads' does. The
+  ending at different distances from the edge; a `to` over 1 gathers a growth there instead. The
   mangrove's trees have none: their crowns reach out past the rim by themselves, and fewer trees there was less of that. `wander` (0 to 1)
   lets the width differ round the rim, from that share less than `width` to that share more: with the trees' 0.8, 2 to 18
   blocks, so along one stretch the trees come to the edge and along another they stop well short. Every growth of a disc
