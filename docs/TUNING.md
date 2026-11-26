@@ -101,8 +101,8 @@ rate goes steadily from what it is elsewhere to `to` times that.
 
 | Setting | Shipped | May be | Turning it |
 |---|---|---|---|
-| `width` | 10 on `jungle_tree` and `jungle_tree_giant`; 8 on `giant_pad` | 1 to 64 | up: the thinning starts further in |
-| `to` | 0.15 on the trees; 4 on the pads | 0 to 8 | 0 is none at the rim; over 1 gathers the growth at the rim |
+| `width` | 10 on `jungle_tree` and `jungle_tree_giant` | 1 to 64 | up: the thinning starts further in |
+| `to` | 0.15 on the trees | 0 to 8 | 0 is none at the rim; over 1 gathers the growth at the rim |
 | `wander` | 0.8 on the trees | 0 to 1 | up: the width differs more round the rim (0.8 of 10 is 2 to 18 blocks) |
 | `reach` | 0.25 on the trees | 0.05 to 1 | the most of a disc's radius the fade may take; down spares small discs |
 
@@ -122,20 +122,17 @@ Entries at the head of a theme's `growth`, before its trees: a cap needs the air
 |---|---|---|---|---|
 | `giant_mushroom_red`: `every`; `patches` | 900; 30, 0.3 | | | 56 of 125 |
 | `giant_mushroom_brown`: `every`; `patches` | | 500; 24, 0.3 | | 13 of 118 |
-| `giant_pad`: `every`; `rim_fade` | 500; 8, `to` 4 | 400; 8, `to` 4 | | 51 of 355 and 28 of 215 |
 | `glow_bulb`, `glow_bulb_swamp`: `every` | 450 | 450 | 300 | 53 of about 290, 19 of about 130 and 74 of about 330 |
 
-- `every` is places tried, not giants grown. A mushroom or pad grows only on soil (not the jungle's brick floors, not
+- `every` is places tried, not giants grown. A mushroom grows only on soil (not the jungle's brick floors, not
   stone, not in water) and only where the whole cap has air, so a mangrove disc's groves leave room for few. A bulb is a
   tree feature and stands on any ground, but since the light round ("Light" below) it wants 9 blocks of clear air over
   it, so under a low dome none grows.
-- As shipped that comes to about three or four giants on a jungle disc, four on a mangrove disc and two or three bulbs on
-  a lush one, unevenly: before the bulbs were changed 17 of 45 jungle discs had a red mushroom and 29 of 45 a bulb.
+- Before the flat-topped pads were removed that came to about three or four giants on a jungle disc, four on a mangrove
+  disc and two or three bulbs on a lush one, unevenly: before the bulbs were changed 17 of 45 jungle discs had a red mushroom and 29 of 45 a bulb.
 - `patches` puts the mushrooms in groves, about `size` blocks from one to the next, over `cover` of the top. `every` still
   says how many places are tried, so a lower `cover` gathers the same number into less ground.
-- The pads' `to` 4 is what hangs their leaves over the edge (16 of 51 on the jungle reached past the rim). Up for more of
-  that, 1 for pads spread evenly.
-- Inside the feature files: `foliage_radius` is the cap's width (3 on the mushrooms, 4 on the pad, which is nine across);
+- Inside the feature files: `foliage_radius` is the cap's width (3 on the mushrooms);
   `cap_provider` and `stem_provider` are the blocks; in the bulbs the trunk's height and the shape of the lights ("Light"
   below).
 - The two ends: the dial `growth.giants` at 0 and at 4 (every `every` a quarter).

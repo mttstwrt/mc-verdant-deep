@@ -597,14 +597,6 @@
       },
       "growth": [
         {
-          "feature": "verdant_deep:disc/giant_pad",
-          "every": 500,
-          "rim_fade": {
-            "width": 8,
-            "to": 4
-          }
-        },
-        {
           "feature": "verdant_deep:disc/giant_mushroom_red",
           "every": 900,
           "patches": {
@@ -1146,14 +1138,6 @@
         "stream_spacing": 30
       },
       "growth": [
-        {
-          "feature": "verdant_deep:disc/giant_pad",
-          "every": 400,
-          "rim_fade": {
-            "width": 8,
-            "to": 4
-          }
-        },
         {
           "feature": "verdant_deep:disc/giant_mushroom_brown",
           "every": 500,
