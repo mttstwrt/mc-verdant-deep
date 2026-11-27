@@ -228,6 +228,11 @@ public interface RavineFootprint {
         return cap;
     }
 
+    /** The discs of the hole whose cell holds {@code (x, z)}, for an audit (see {@link RavineCarve#discsAt}). */
+    default List<DiscSummary> discsAt(int x, int z) {
+        return List.of();
+    }
+
     /** The gas of one hole, and the column of the hole's middle, which its pulls draw gas towards. */
     record HoleGasAt(double x, double z, HoleGas gas) {}
 
@@ -254,6 +259,17 @@ public interface RavineFootprint {
                     }
                 }
                 return Optional.empty();
+            }
+
+            @Override
+            public List<DiscSummary> discsAt(int x, int z) {
+                for (Region region : copy) {
+                    List<DiscSummary> discs = region.carve().discsAt(x, z);
+                    if (!discs.isEmpty()) {
+                        return discs;
+                    }
+                }
+                return List.of();
             }
 
             @Override

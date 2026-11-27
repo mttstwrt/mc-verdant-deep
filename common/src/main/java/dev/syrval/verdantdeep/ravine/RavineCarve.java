@@ -1,6 +1,7 @@
 package dev.syrval.verdantdeep.ravine;
 
 import com.mojang.serialization.MapCodec;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -173,6 +174,26 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
      */
     public Optional<ChasmStats> statsAt(int x, int z, Function<RuinSite, ChasmStats.Containers> held) {
         return holeAt(x, z).map(hole -> ChasmStats.of(settings, discsOf(hole), held));
+    }
+
+    /** The discs of the hole whose cell holds {@code (x, z)}, in layout order, or none outside a hole. */
+    public List<DiscSummary> discsAt(int x, int z) {
+        return holeAt(x, z).map(hole -> {
+            CellDiscs cellDiscs = discsOf(hole);
+            List<Disc> discs = cellDiscs.layout().discs();
+            List<DiscSummary> summaries = new ArrayList<>(discs.size());
+            for (int i = 0; i < discs.size(); i++) {
+                Disc disc = discs.get(i);
+                String support = switch (disc.support()) {
+                    case Disc.Support.Bracket bracket -> "bracket";
+                    case Disc.Support.Standing standing -> "standing";
+                    case Disc.Support.Hanging hanging -> "hanging";
+                };
+                summaries.add(new DiscSummary(hole.cell().centreX(), hole.cell().centreZ(), i, disc.x(), disc.z(), disc.floor(),
+                        disc.radius(), ChasmStats.labelOf(settings, cellDiscs.themes().get(i)), support));
+            }
+            return List.copyOf(summaries);
+        }).orElse(List.of());
     }
 
     private Optional<Hole> holeAt(int x, int z) {

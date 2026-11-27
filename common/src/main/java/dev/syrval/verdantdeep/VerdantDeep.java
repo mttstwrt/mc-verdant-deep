@@ -13,6 +13,7 @@ import dev.syrval.verdantdeep.basilisk.BasiliskEntities;
 import dev.syrval.verdantdeep.basilisk.BasiliskTuning;
 import dev.syrval.verdantdeep.basilisk.BasiliskTuningCommand;
 import dev.syrval.verdantdeep.basilisk.client.BasiliskClient;
+import dev.syrval.verdantdeep.compat.AbyssAuditCommand;
 import dev.syrval.verdantdeep.compat.AbyssStatsCommand;
 import dev.syrval.verdantdeep.compat.CurseTicker;
 import dev.syrval.verdantdeep.compat.DiscRuinsPlacement;
@@ -72,6 +73,7 @@ public final class VerdantDeep {
         LifecycleEvent.SERVER_STARTING.register(server -> BasiliskTuning.load(Platform.getConfigFolder()));
         CommandRegistrationEvent.EVENT.register((dispatcher, registry, selection) -> {
             AbyssStatsCommand.register(dispatcher);
+            AbyssAuditCommand.register(dispatcher);
             BasiliskTuningCommand.register(dispatcher);
         });
         registerCurse();
