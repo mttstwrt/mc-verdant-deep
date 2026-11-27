@@ -4,6 +4,7 @@ import dev.syrval.verdantdeep.VerdantDeep;
 import dev.syrval.verdantdeep.ravine.DiscSpringSink;
 import dev.syrval.verdantdeep.ravine.RavineFootprint;
 import dev.syrval.verdantdeep.ravine.WallBowlSettings;
+import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
@@ -34,9 +35,9 @@ import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 /**
  * Catches what the wall of a hole lets out of the terrain in one chunk (see {@code WallBowlSettings}): each block of the
  * terrain's still water or lava, or a block waterlogged with it, beside the hole's open air is a leak, leaks that lie together
- * are an outflow, and each outflow gets a bowl under it or is plugged. Fluid that would run into a cave of the terrain's within the hole's edge falloff of its
- * open air is plugged as well: such caves often open into the hole, and where their water would come out is not known. This runs once the chunk's decoration is done, vanilla's springs included, and before
- * the chunk's fluids can flow, so a leak never runs before it is dealt with.
+ * are an outflow, and each outflow gets a bowl under it or is plugged. Indirect leaks are plugged at the source
+ * when they enter the edge falloff or a short downhill cave route to the hole. This runs after vanilla decoration,
+ * including springs, and before the chunk's fluids can flow.
  *
  * <p>Only the chunks a hole reaches are looked at, and in them only the sections whose palette holds a fluid, so the wall
  * costs a scan of the few sections that cut through an aquifer, a lava pocket or a spring. A leak is found from the blocks
@@ -51,6 +52,8 @@ final class WallBowls {
     private static final int MOST_LEAKS = 400;
     // Columns looked at across a chunk to tell whether a hole reaches it: every fourth block, edges included.
     private static final int SAMPLE_STEP = 5;
+    // Limit the search to local cave mouths and the decoration region's readable neighbours.
+    private static final int CAVE_STEPS = 16;
     private static final int RIM_HEIGHT = 2;
     private static final int DISH_DEPTH = 4;
     // A fall's own blocks may pass this close to anything it must keep off: it touches nothing on the way down.
@@ -150,6 +153,7 @@ final class WallBowls {
         List<Leak> leaks = new ArrayList<>();
         var pos = new BlockPos.MutableBlockPos();
         var next = new BlockPos.MutableBlockPos();
+        var caves = new CaveRoutes(level, footprint, chunkPos);
         LevelChunkSection[] sections = chunk.getSections();
         for (int index = 0; index < sections.length; index++) {
             LevelChunkSection section = sections[index];
@@ -168,27 +172,122 @@ final class WallBowls {
                         if (springs.contains(pos.asLong())) {
                             continue;
                         }
+                        int first = leaks.size();
                         boolean terrain = false;
+                        boolean lava = state.getFluidState().is(FluidTags.LAVA);
                         for (Direction side : OUT) {
                             next.setWithOffset(pos, side);
-                            if (level.isOutsideBuildHeight(next) || !level.getBlockState(next).isAir()) {
+                            if (level.isOutsideBuildHeight(next)) {
+                                continue;
+                            }
+                            BlockState outlet = level.getBlockState(next);
+                            boolean air = outlet.isAir();
+                            if (!air && (lava || !CaveRoutes.canPass(outlet))) {
                                 continue;
                             }
                             boolean open = footprint.isOpen(next.getX(), next.getY(), next.getZ());
-                            if (!open && !footprint.isNearOpen(next.getX(), next.getY(), next.getZ())) {
+                            boolean near = open || footprint.isNearOpen(next.getX(), next.getY(), next.getZ());
+                            if ((lava && !near) || (!air && open)) {
                                 continue;
                             }
-                            // Asked only once a leak is in sight, as it is the dearer question.
                             if (!terrain && !(terrain = footprint.isTerrainFluidAt(pos.getX(), pos.getY(), pos.getZ()))) {
                                 break;
                             }
-                            leaks.add(new Leak(pos.immutable(), next.immutable(), state.getFluidState().is(FluidTags.LAVA), !open));
+                            if (air && near) {
+                                leaks.add(new Leak(pos.immutable(), next.immutable(), lava, !open));
+                                continue;
+                            }
+                            if (caves.reachesOpen(next)) {
+                                // Plugging this source also closes its direct outlets, so do not build a bowl for them.
+                                leaks.subList(first, leaks.size()).clear();
+                                leaks.add(new Leak(pos.immutable(), next.immutable(), false, true));
+                                VerdantDeep.LOGGER.debug("Terrain cave leak from {} through {}", pos.toShortString(), next.toShortString());
+                                break;
+                            }
                         }
                     }
                 }
             }
         }
         return leaks;
+    }
+
+    /** Read-only search within one decoration pass. Only the cave cells are probed for carved air. */
+    private static final class CaveRoutes {
+        private static final byte BLOCKED = 1;
+        private static final byte PASSABLE = 2;
+        private static final byte OPEN = 3;
+        private static final byte DEAD_END = 4;
+
+        private final WorldGenLevel level;
+        private final RavineFootprint footprint;
+        private final ChunkPos chunk;
+        private final Long2ByteOpenHashMap cells = new Long2ByteOpenHashMap();
+        private final LongSet visited = new LongOpenHashSet();
+        private final LongArrayFIFOQueue pending = new LongArrayFIFOQueue();
+        private final BlockPos.MutableBlockPos probe = new BlockPos.MutableBlockPos();
+
+        private CaveRoutes(WorldGenLevel level, RavineFootprint footprint, ChunkPos chunk) {
+            this.level = level;
+            this.footprint = footprint;
+            this.chunk = chunk;
+        }
+
+        private static boolean canPass(BlockState state) {
+            // A single decoration block can decide whether the same cave drains, depending on chunk order.
+            return state.isAir() || state.is(Blocks.POINTED_DRIPSTONE) && state.getFluidState().isEmpty();
+        }
+
+        private boolean reachesOpen(BlockPos start) {
+            long origin = start.asLong();
+            if (cells.get(origin) == DEAD_END) {
+                return false;
+            }
+            pending.clear();
+            visited.clear();
+            pending.enqueue(origin);
+            visited.add(origin);
+            for (int step = 0; step < CAVE_STEPS && !pending.isEmpty(); step++) {
+                for (int count = pending.size(); count > 0; count--) {
+                    long from = pending.dequeueLong();
+                    int x = BlockPos.getX(from);
+                    int y = BlockPos.getY(from);
+                    int z = BlockPos.getZ(from);
+                    for (Direction side : OUT) {
+                        probe.set(x + side.getStepX(), y + side.getStepY(), z + side.getStepZ());
+                        long next = probe.asLong();
+                        if (!WallBowlSupport.inRegion(level, chunk, probe) || !visited.add(next)) {
+                            continue;
+                        }
+                        byte cell = cells.get(next);
+                        if (cell == 0) {
+                            BlockState state = level.getBlockState(probe);
+                            cell = !canPass(state) ? BLOCKED
+                                    : footprint.isOpen(probe.getX(), probe.getY(), probe.getZ()) ? OPEN : PASSABLE;
+                            cells.put(next, cell);
+                        }
+                        if (cell == OPEN) {
+                            return true;
+                        }
+                        if (cell == PASSABLE) {
+                            pending.enqueue(next);
+                        }
+                    }
+                }
+            }
+            // Reuse a negative result only if the cave was exhausted before the distance cutoff.
+            if (pending.isEmpty()) {
+                cells.put(origin, DEAD_END);
+                var seen = visited.iterator();
+                while (seen.hasNext()) {
+                    long cell = seen.nextLong();
+                    if (cells.get(cell) == PASSABLE) {
+                        cells.put(cell, DEAD_END);
+                    }
+                }
+            }
+            return false;
+        }
     }
 
     // A waterlogged block of the terrain's, as glow lichen or dripstone in an aquifer is, lets its water out as a source does.
