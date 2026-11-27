@@ -270,8 +270,7 @@ final class DiscRuinSites {
                 return OptionalInt.empty();
             }
             int top = topOver(lowest, piece);
-            if (standing.stream().anyMatch(other -> other.isNear(host.index(), round, lowest - piece.sink(), top))
-                    || kept.get(host.index()).stream().anyMatch(flat -> round.distanceTo(flat.x(), flat.z()) < round.radius() + flat.radius())) {
+            if (standing.stream().anyMatch(other -> other.isNear(host.index(), round, lowest - piece.sink(), top)) || isOnKept(host, round)) {
                 return OptionalInt.empty();
             }
             if (isWet(host, round) || isCrossed(disc, round, lowest, top)
@@ -282,6 +281,23 @@ final class DiscRuinSites {
                 return OptionalInt.empty();
             }
             return OptionalInt.of(lowest);
+        }
+
+        // The ground kept on the disc for something else, or on another disc of its layer: discs of one floor run into one
+        // another, so a terrace of the next shelf's may lie under a piece stood near the rim.
+        private boolean isOnKept(Host host, Round round) {
+            List<Disc> discs = layout.discs();
+            for (int j = 0; j < discs.size(); j++) {
+                if (j != host.index() && discs.get(j).floor() != host.disc().floor()) {
+                    continue;
+                }
+                for (DiscGround.Flat flat : kept.get(j)) {
+                    if (round.distanceTo(flat.x(), flat.z()) < round.radius() + flat.radius()) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         // Whether a root of the hole's comes within the margin of a round between two heights. A root's knots are about a
