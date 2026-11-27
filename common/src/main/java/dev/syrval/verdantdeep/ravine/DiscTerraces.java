@@ -96,6 +96,11 @@ public record DiscTerraces(
         }
         var plans = new ArrayList<Optional<Plan>>(themes.size());
         for (int i = 0; i < themes.size(); i++) {
+            Optional<DiscTerraces> terraces = themes.get(i).flatMap(theme -> theme.ground().terraces());
+            if (terraces.isEmpty()) {
+                plans.add(Optional.empty());
+                continue;
+            }
             Disc disc = discs.get(i);
             double inward = Math.atan2(cell.centreZ() - disc.z(), cell.centreX() - disc.x());
             int index = i;
@@ -104,8 +109,15 @@ public record DiscTerraces(
             Open open = (x, y, z) -> RavineShape.signedDistance(settings, bounds, cell, layout, x, y, z) <= -CLEAR_AIR
                     && RavineShape.rockDistance(settings, bounds, cell, layout, x, y, z) >= CLEAR_AIR
                     && !onAnother(discs, grounds, index, x, y, z);
-            plans.add(themes.get(i).flatMap(theme -> theme.ground().terraces())
-                    .flatMap(terraces -> terraces.layOut(disc, settings.discs(), cell.hash(), index, inward, open)));
+            // On a shared platform, a later chain must leave the earlier pools and banks intact, including their slopes.
+            var neighbours = new ArrayList<Plan>();
+            for (int j = 0; j < plans.size(); j++) {
+                Disc other = discs.get(j);
+                if (disc.floor() == other.floor() && Math.hypot(disc.x() - other.x(), disc.z() - other.z()) < disc.radius() + other.radius()) {
+                    plans.get(j).ifPresent(neighbours::add);
+                }
+            }
+            plans.add(terraces.get().layOut(disc, settings.discs(), cell.hash(), index, inward, open, neighbours));
         }
         return List.copyOf(plans);
     }
@@ -126,12 +138,16 @@ public record DiscTerraces(
      * of the hole's middle from the disc, which the chain runs along.
      */
     Optional<Plan> layOut(Disc disc, DiscShape shape, long hash, int index, double inward, Open open) {
+        return layOut(disc, shape, hash, index, inward, open, List.of());
+    }
+
+    private Optional<Plan> layOut(Disc disc, DiscShape shape, long hash, int index, double inward, Open open, List<Plan> neighbours) {
         int base = HASH_BASE + index * PER_DISC;
         int count = RootRoutes.countFor(pools, RavineCells.unit(hash, base));
         for (int n = count; n >= 2; n--) {
             for (double turn : TURNS) {
                 for (double shift : SHIFTS) {
-                    Optional<Plan> plan = tryLayOut(disc, shape, hash, base, inward + turn, shift, n, open);
+                    Optional<Plan> plan = tryLayOut(disc, shape, hash, base, inward + turn, shift, n, open, neighbours);
                     if (plan.isPresent()) {
                         return plan;
                     }
@@ -141,7 +157,8 @@ public record DiscTerraces(
         return Optional.empty();
     }
 
-    private Optional<Plan> tryLayOut(Disc disc, DiscShape shape, long hash, int base, double angle, double shift, int count, Open open) {
+    private Optional<Plan> tryLayOut(
+            Disc disc, DiscShape shape, long hash, int base, double angle, double shift, int count, Open open, List<Plan> neighbours) {
         // The terraces' level tops keep within the ground that DiscGround lets rise, inside the level ring at the rim.
         double room = disc.radius() - DiscGround.RIM_FLAT - 1;
         int[] radii = new int[count];
@@ -185,7 +202,8 @@ public record DiscTerraces(
             terraces.add(new Terrace(placed.get(k)[0], placed.get(k)[1], radii[k], radii[k] + bank, levels[k]));
         }
         var plan = new Plan(disc, terraces);
-        return plan.fill(depth) && plan.holds(shape, open) ? Optional.of(plan) : Optional.empty();
+        return plan.fill(depth) && neighbours.stream().noneMatch(plan::overlaps) && plan.holds(shape, open)
+                ? Optional.of(plan) : Optional.empty();
     }
 
     private static int highestTop(Disc disc, int x, int z, int reach) {
@@ -237,6 +255,37 @@ public record DiscTerraces(
                 highest = Math.max(highest, terrace.level() - (terrace.distanceTo(x, z) - terrace.reach()) / RUN);
             }
             return highest;
+        }
+
+        /** Whether the terrace or its slope would fill any of this column above its platform. */
+        boolean raisesGroundBetween(int x, int z, int bottom, int top) {
+            double fromAxis = Math.hypot(x - disc.x(), z - disc.z());
+            double room = disc.radius() - DiscGround.RIM_FLAT - fromAxis;
+            if (room < 1) {
+                return false;
+            }
+            int rock = disc.topBlockAt(fromAxis);
+            int first = Math.max(bottom, rock + 1);
+            return first <= top && levelAt(x, z).orElseGet(() -> (int) Math.floor(Math.min(slopeAt(x, z), rock + room))) >= first;
+        }
+
+        private boolean overlaps(Plan other) {
+            return coversTopsOf(other) || other.coversTopsOf(this);
+        }
+
+        // The slopes may meet where neither chain needs a level top.
+        private boolean coversTopsOf(Plan other) {
+            for (Terrace top : other.terraces) {
+                for (int x = top.x() - top.reach(); x <= top.x() + top.reach(); x++) {
+                    for (int z = top.z() - top.reach(); z <= top.z() + top.reach(); z++) {
+                        if (top.distanceTo(x, z) <= top.reach()
+                                && (levelAt(x, z).isPresent() || raisesGroundBetween(x, z, Integer.MIN_VALUE, Integer.MAX_VALUE))) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
         }
 
         /** A pool's or a notch's water in a column, or empty where there is none. */

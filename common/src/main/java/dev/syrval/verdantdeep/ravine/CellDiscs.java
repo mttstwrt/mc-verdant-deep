@@ -46,7 +46,7 @@ record CellDiscs(
             DiscRuinSites.Stood stood = DiscRuinSites.onDiscs(settings, bounds, cell, layout, themes, traits, pieces, roots, kept);
             List<List<DiscGround.Flat>> rounds = DiscGround.roundsOf(layout.discs().size(), stood.all());
             // Falls keep clear of ruins, troves, roots and terraces, and the ground lies level round all but the terraces.
-            DiscFalls falls = DiscFalls.of(settings, bounds, cell, layout, themes, traits, joined(rounds, kept), roots);
+            DiscFalls falls = DiscFalls.of(settings, bounds, cell, layout, themes, traits, joined(rounds, kept), roots, terraces);
             // A disc whose theme needs a fall and found none is given another theme, and everything that depends on the
             // themes is found again. A theme that needs a fall is never given that way, so this ends.
             Set<Integer> dry = withoutTheirFall(themes, falls);

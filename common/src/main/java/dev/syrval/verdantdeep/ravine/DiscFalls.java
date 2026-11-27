@@ -158,11 +158,12 @@ final class DiscFalls {
      */
     static DiscFalls of(
             RavineSettings settings, RavineBounds bounds, RavineCell cell, DiscLayout layout, List<Optional<DiscTheme>> themes,
-            List<DiscTraits> traits, List<List<DiscGround.Flat>> ruins, RootLayout roots) {
+            List<DiscTraits> traits, List<List<DiscGround.Flat>> ruins, RootLayout roots, List<Optional<DiscTerraces.Plan>> terraces) {
         if (settings.falls().isEmpty() || settings.cone().isEmpty()) {
             return NONE;
         }
-        var grower = new Grower(settings, settings.cone().get(), settings.falls().get(), bounds, cell, layout, themes, traits, ruins, roots);
+        var grower = new Grower(settings, settings.cone().get(), settings.falls().get(), bounds, cell, layout, themes, traits, ruins, roots,
+                terraces.stream().flatMap(Optional::stream).toList());
         grower.grow();
         grower.spring();
         return new DiscFalls(List.copyOf(grower.taken.values()), grower.grown, grower.sprung, grower.flows, grower.under());
@@ -240,6 +241,7 @@ final class DiscFalls {
         private final List<Optional<DiscTheme>> themes;
         private final List<DiscTraits> traits;
         private final List<List<DiscGround.Flat>> ruins;
+        private final List<DiscTerraces.Plan> terraces;
         private final RootLayout roots;
         // Every knot of every root, by the cube of ROOT_GRID blocks it lies in. No root is thicker than a cube is wide.
         private final Map<Long, List<Root.Knot>> knots = new HashMap<>();
@@ -259,7 +261,8 @@ final class DiscFalls {
 
         Grower(
                 RavineSettings settings, ConeSettings cone, FallSettings falls, RavineBounds bounds, RavineCell cell, DiscLayout layout,
-                List<Optional<DiscTheme>> themes, List<DiscTraits> traits, List<List<DiscGround.Flat>> ruins, RootLayout roots) {
+                List<Optional<DiscTheme>> themes, List<DiscTraits> traits, List<List<DiscGround.Flat>> ruins, RootLayout roots,
+                List<DiscTerraces.Plan> terraces) {
             this.settings = settings;
             this.cone = cone;
             this.falls = falls;
@@ -271,6 +274,7 @@ final class DiscFalls {
             this.themes = themes;
             this.traits = traits;
             this.ruins = ruins;
+            this.terraces = terraces;
             this.roots = roots;
             this.startedOn = new int[discs.size()];
             for (int i = 0; i < discs.size(); i++) {
@@ -575,7 +579,9 @@ final class DiscFalls {
             for (int[] drop : drops) {
                 Optional<Landing> under = landing(i, drop[0], drop[1], level);
                 if (under.isEmpty() || landing.isPresent() && !landing.get().onto().equals(under.get().onto())
-                        || level - under.get().y() - 1 < falls.minDrop() || hasARootInItsWay(drop[0], drop[1], under.get().y(), level)) {
+                        || level - under.get().y() - 1 < falls.minDrop()
+                        || hasTerraceGround(drop[0], drop[1], under.get().y() + 1, level)
+                        || hasARootInItsWay(drop[0], drop[1], under.get().y(), level)) {
                     return false;
                 }
                 landing = landing.filter(lowest -> lowest.y() <= under.get().y()).or(() -> under);
@@ -826,7 +832,8 @@ final class DiscFalls {
                     || topDiscAt(key.disc(), x, z).orElse(key.disc()) != key.disc()) {
                 return Optional.empty();
             }
-            if (air(x, ground + 1, z) <= 0 || layerAt(key.disc(), x, z).stream().anyMatch(each -> ruins.get(each).stream()
+            if (air(x, ground + 1, z) <= 0 || hasTerraceGround(x, z, ground + 1, ground + 1)
+                    || layerAt(key.disc(), x, z).stream().anyMatch(each -> ruins.get(each).stream()
                     .anyMatch(ruin -> Math.hypot(x - ruin.x(), z - ruin.z()) <= ruin.radius()))) {
                 return Optional.empty();
             }
@@ -861,6 +868,15 @@ final class DiscFalls {
             }
             // Asked last, as every knot of every root has to be looked at.
             return isByARoot(x, level, z) ? Optional.empty() : Optional.of(new Column(key.disc(), x, z, level, depth, cut, lip));
+        }
+
+        private boolean hasTerraceGround(int x, int z, int bottom, int top) {
+            for (DiscTerraces.Plan plan : terraces) {
+                if (plan.raisesGroundBetween(x, z, bottom, top)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         /** What water let go at a height comes down on, straight under a column; empty if that is no place for a fall to end. */
