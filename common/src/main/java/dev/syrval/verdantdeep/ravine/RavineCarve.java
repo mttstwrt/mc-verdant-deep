@@ -331,6 +331,24 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
      * falls, so that fluid there is the terrain's and not a pond or a fall the hole made.
      */
     public boolean isTerrainAt(int x, int y, int z) {
+        return isTerrainAt(x, y, z, (disc, px, py, pz) -> disc.rockDistance(settings.discs(), px + 0.5, py + 0.5, pz + 0.5) <= 1);
+    }
+
+    /**
+     * Whether fluid at a block is the terrain's own and not this hole's: outside its open air and its falls, and not in a disc's
+     * platform, where its ponds take the place of the top. Water of the terrain's lying against a disc's underside is the
+     * terrain's, and runs out like any other; so is water where a stem would pass through the terrain, which the stem is not
+     * painted over (see {@code DiscBlocks}).
+     */
+    public boolean isTerrainFluidAt(int x, int y, int z) {
+        return isTerrainAt(x, y, z, (disc, px, py, pz) -> disc.pointAt(settings.discs(), px, py, pz).orElse(null) instanceof DiscPoint.Platform);
+    }
+
+    private interface DiscClaim {
+        boolean claims(Disc disc, int x, int y, int z);
+    }
+
+    private boolean isTerrainAt(int x, int y, int z, DiscClaim claim) {
         if (compute(new DensityFunction.SinglePointContext(x, y, z)) <= 0) {
             return false;
         }
@@ -343,7 +361,7 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
             return false;
         }
         for (Disc disc : cellDiscs.layout().near(x, z)) {
-            if (disc.rockDistance(settings.discs(), x + 0.5, y + 0.5, z + 0.5) <= 1) {
+            if (claim.claims(disc, x, y, z)) {
                 return false;
             }
         }
