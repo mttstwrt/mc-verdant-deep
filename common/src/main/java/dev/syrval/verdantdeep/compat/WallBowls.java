@@ -275,9 +275,9 @@ final class WallBowls {
                     }
                 }
             }
-            // Reuse a negative result only if the cave was exhausted before the distance cutoff.
+            // Cache only classified passable cells if the cave was exhausted. An unclassified origin
+            // can be a dry dripstone in the falloff, which another search may use as its destination.
             if (pending.isEmpty()) {
-                cells.put(origin, DEAD_END);
                 var seen = visited.iterator();
                 while (seen.hasNext()) {
                     long cell = seen.nextLong();
