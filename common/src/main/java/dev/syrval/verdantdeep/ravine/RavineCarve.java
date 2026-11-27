@@ -1,6 +1,7 @@
 package dev.syrval.verdantdeep.ravine;
 
 import com.mojang.serialization.MapCodec;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -175,6 +176,26 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
         return holeAt(x, z).map(hole -> ChasmStats.of(settings, discsOf(hole), held));
     }
 
+    /** The discs of the hole whose cell holds {@code (x, z)}, in layout order, or none outside a hole. */
+    public List<DiscSummary> discsAt(int x, int z) {
+        return holeAt(x, z).map(hole -> {
+            CellDiscs cellDiscs = discsOf(hole);
+            List<Disc> discs = cellDiscs.layout().discs();
+            List<DiscSummary> summaries = new ArrayList<>(discs.size());
+            for (int i = 0; i < discs.size(); i++) {
+                Disc disc = discs.get(i);
+                String support = switch (disc.support()) {
+                    case Disc.Support.Bracket bracket -> "bracket";
+                    case Disc.Support.Standing standing -> "standing";
+                    case Disc.Support.Hanging hanging -> "hanging";
+                };
+                summaries.add(new DiscSummary(hole.cell().centreX(), hole.cell().centreZ(), i, disc.x(), disc.z(), disc.floor(),
+                        disc.radius(), ChasmStats.labelOf(settings, cellDiscs.themes().get(i)), support));
+            }
+            return List.copyOf(summaries);
+        }).orElse(List.of());
+    }
+
     private Optional<Hole> holeAt(int x, int z) {
         return RavineCells.containing(seed, settings, x, z).flatMap(cell -> boundsOf(cell).map(own -> new Hole(cell, own)));
     }
@@ -310,6 +331,24 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
      * falls, so that fluid there is the terrain's and not a pond or a fall the hole made.
      */
     public boolean isTerrainAt(int x, int y, int z) {
+        return isTerrainAt(x, y, z, (disc, px, py, pz) -> disc.rockDistance(settings.discs(), px + 0.5, py + 0.5, pz + 0.5) <= 1);
+    }
+
+    /**
+     * Whether fluid at a block is the terrain's own and not this hole's: outside its open air and its falls, and not in a disc's
+     * platform, where its ponds take the place of the top. Water of the terrain's lying against a disc's underside is the
+     * terrain's, and runs out like any other; so is water where a stem would pass through the terrain, which the stem is not
+     * painted over (see {@code DiscBlocks}).
+     */
+    public boolean isTerrainFluidAt(int x, int y, int z) {
+        return isTerrainAt(x, y, z, (disc, px, py, pz) -> disc.pointAt(settings.discs(), px, py, pz).orElse(null) instanceof DiscPoint.Platform);
+    }
+
+    private interface DiscClaim {
+        boolean claims(Disc disc, int x, int y, int z);
+    }
+
+    private boolean isTerrainAt(int x, int y, int z, DiscClaim claim) {
         if (compute(new DensityFunction.SinglePointContext(x, y, z)) <= 0) {
             return false;
         }
@@ -322,7 +361,7 @@ public final class RavineCarve implements DensityFunction.SimpleFunction {
             return false;
         }
         for (Disc disc : cellDiscs.layout().near(x, z)) {
-            if (disc.rockDistance(settings.discs(), x + 0.5, y + 0.5, z + 0.5) <= 1) {
+            if (claim.claims(disc, x, y, z)) {
                 return false;
             }
         }

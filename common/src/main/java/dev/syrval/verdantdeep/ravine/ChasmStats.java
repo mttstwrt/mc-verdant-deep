@@ -77,7 +77,7 @@ public record ChasmStats(int discs, Map<String, Integer> themes, int ruins, int 
     }
 
     // A theme has no name of its own: its biome tells it apart, and a theme with none is known by its place in the settings.
-    private static String labelOf(RavineSettings settings, Optional<DiscTheme> theme) {
+    static String labelOf(RavineSettings settings, Optional<DiscTheme> theme) {
         if (theme.isEmpty()) {
             return "no theme";
         }

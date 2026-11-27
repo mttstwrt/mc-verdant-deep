@@ -5,9 +5,13 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.syrval.verdantdeep.ravine.DiscSites;
 import dev.syrval.verdantdeep.ravine.RavineFootprint;
 import dev.syrval.verdantdeep.ravine.RuinSite;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Registry;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.registries.Registries;
@@ -21,7 +25,10 @@ import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.LiquidBlockContainer;
 import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
@@ -35,6 +42,7 @@ import net.minecraft.world.level.levelgen.structure.pools.StructureTemplatePool;
 import net.minecraft.world.level.levelgen.structure.structures.JigsawStructure;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.storage.loot.LootTable;
 
 /**
@@ -61,6 +69,9 @@ public final class DiscRuinsStructure extends Structure {
             DiscSites.CODEC.optionalFieldOf("sites", DiscSites.RUINS).forGetter(structure -> structure.sites)
     ).apply(i, DiscRuinsStructure::new));
     public static final StructureType<DiscRuinsStructure> TYPE = () -> CODEC;
+
+    // Where water leaves a block: sideways and down, never up.
+    private static final Direction[] OUT = {Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST, Direction.DOWN};
 
     private final DiscSites sites;
 
@@ -114,11 +125,85 @@ public final class DiscRuinsStructure extends Structure {
             WorldGenLevel level, StructureManager structures, ChunkGenerator generator, RandomSource random, BoundingBox box, ChunkPos chunk,
             PiecesContainer pieces) {
         var footprint = ((RavineFootprintHolder) (Object) level.getLevel().getChunkSource().randomState()).verdantDeep$footprint();
+        List<PoolElementStructurePiece> here = new ArrayList<>();
         for (StructurePiece piece : pieces.pieces()) {
             if (piece instanceof PoolElementStructurePiece ruin && ruin.getBoundingBox().intersects(box)) {
                 siteOf(ruin, footprint).ifPresent(site -> site.loot().ifPresent(table -> fill(level, ruin, box, chunk, table, site.seed())));
+                here.add(ruin);
             }
         }
+        if (!here.isEmpty()) {
+            LongSet held = heldWater(footprint, box);
+            for (PoolElementStructurePiece ruin : here) {
+                drain(level, ruin.getBoundingBox(), box, held);
+            }
+        }
+    }
+
+    // The still water the hole lays in and round the chunk, its discs' ponds and its falls' pools and channels.
+    private static LongSet heldWater(RavineFootprint footprint, BoundingBox box) {
+        LongSet held = new LongOpenHashSet();
+        for (int cx = (box.minX() - 1) >> 4; cx <= (box.maxX() + 1) >> 4; cx++) {
+            for (int cz = (box.minZ() - 1) >> 4; cz <= (box.maxZ() + 1) >> 4; cz++) {
+                footprint.forEachDiscWater(cx << 4, cz << 4, (x, surface, z, depth, fluid) -> {
+                    for (int below = 0; below < depth; below++) {
+                        held.add(BlockPos.asLong(x, surface - below, z));
+                    }
+                });
+                footprint.forEachFallWater(cx << 4, cz << 4, (x, level, z, depth, cut, lip) -> {
+                    for (int below = 0; below < depth; below++) {
+                        held.add(BlockPos.asLong(x, level - below, z));
+                    }
+                });
+            }
+        }
+        return held;
+    }
+
+    /**
+     * Takes the water out of each waterlogged block of a ruin but where the hole lays still water and the block holds it in. A
+     * piece set down in a disc's pond or a fall's water takes the water into its stairs, slabs and chests, and vanilla passes it
+     * on from each to the waterloggable blocks of the piece beside it (the jigsaw's default liquid settings), which can carry it
+     * out of the pond to where it runs over the disc. So only a block in the water's own place keeps it, and then only with no
+     * open side and no open space under it: a ruin still stands in its pond. What lies round the piece depends on which chunks
+     * have grown first, so the water's place is taken from the plan rather than from the blocks. The chunk's edges are looked
+     * at one block into its neighbours, since the part of the piece there may have been set down before or after this one.
+     */
+    private static void drain(WorldGenLevel level, BoundingBox piece, BoundingBox box, LongSet held) {
+        int minX = Math.max(piece.minX(), box.minX() - 1);
+        int maxX = Math.min(piece.maxX(), box.maxX() + 1);
+        int minZ = Math.max(piece.minZ(), box.minZ() - 1);
+        int maxZ = Math.min(piece.maxZ(), box.maxZ() + 1);
+        var pos = new BlockPos.MutableBlockPos();
+        var next = new BlockPos.MutableBlockPos();
+        for (int y = piece.minY(); y <= piece.maxY(); y++) {
+            for (int x = minX; x <= maxX; x++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    BlockState state = level.getBlockState(pos.set(x, y, z));
+                    if (state.hasProperty(BlockStateProperties.WATERLOGGED) && state.getValue(BlockStateProperties.WATERLOGGED)
+                            && (!held.contains(pos.asLong()) || letsWaterOut(level, pos, next))) {
+                        level.setBlock(pos, state.setValue(BlockStateProperties.WATERLOGGED, false), Block.UPDATE_CLIENTS);
+                    }
+                }
+            }
+        }
+    }
+
+    // Water leaves a block sideways and down, into air, flowing water, or anything that does not stop it, as plants do.
+    private static boolean letsWaterOut(WorldGenLevel level, BlockPos pos, BlockPos.MutableBlockPos next) {
+        for (Direction side : OUT) {
+            next.setWithOffset(pos, side);
+            if (level.isOutsideBuildHeight(next)) {
+                continue;
+            }
+            BlockState there = level.getBlockState(next);
+            FluidState fluid = there.getFluidState();
+            if (there.isAir() || !fluid.isEmpty() && !fluid.isSource()
+                    || fluid.isEmpty() && !(there.getBlock() instanceof LiquidBlockContainer) && !there.blocksMotion()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // A piece saved with its chunk comes back as vanilla's own, so its site is found again by where pieceAt put it: the

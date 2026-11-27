@@ -223,9 +223,19 @@ public interface RavineFootprint {
         return true;
     }
 
+    /** Whether fluid at a block is the terrain's own and not a hole's pond or fall (see {@link RavineCarve#isTerrainFluidAt}). */
+    default boolean isTerrainFluidAt(int x, int y, int z) {
+        return true;
+    }
+
     /** How far a block is from every disc's rock, root and fall, up to {@code cap} (see {@link RavineCarve#clearanceAt}). */
     default double clearanceAt(int x, int y, int z, double cap) {
         return cap;
+    }
+
+    /** The discs of the hole whose cell holds {@code (x, z)}, for an audit (see {@link RavineCarve#discsAt}). */
+    default List<DiscSummary> discsAt(int x, int z) {
+        return List.of();
     }
 
     /** The gas of one hole, and the column of the hole's middle, which its pulls draw gas towards. */
@@ -254,6 +264,17 @@ public interface RavineFootprint {
                     }
                 }
                 return Optional.empty();
+            }
+
+            @Override
+            public List<DiscSummary> discsAt(int x, int z) {
+                for (Region region : copy) {
+                    List<DiscSummary> discs = region.carve().discsAt(x, z);
+                    if (!discs.isEmpty()) {
+                        return discs;
+                    }
+                }
+                return List.of();
             }
 
             @Override
@@ -313,6 +334,16 @@ public interface RavineFootprint {
             public boolean isTerrainAt(int x, int y, int z) {
                 for (Region region : copy) {
                     if (!region.carve().isTerrainAt(x, y, z)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            @Override
+            public boolean isTerrainFluidAt(int x, int y, int z) {
+                for (Region region : copy) {
+                    if (!region.carve().isTerrainFluidAt(x, y, z)) {
                         return false;
                     }
                 }

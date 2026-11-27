@@ -18,13 +18,13 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.FallingBlock;
 import net.minecraft.world.level.block.GrowingPlantBlock;
-import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunkSection;
@@ -32,9 +32,9 @@ import net.minecraft.world.level.levelgen.WorldgenRandom;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 
 /**
- * Catches what the wall of a hole lets out of the terrain in one chunk (see {@code WallBowlSettings}): each still block of
- * the terrain's water or lava beside the hole's open air is a leak, leaks that lie together are an outflow, and each outflow
- * gets a bowl under it or is plugged. Fluid that would run into a cave of the terrain's within the hole's edge falloff of its
+ * Catches what the wall of a hole lets out of the terrain in one chunk (see {@code WallBowlSettings}): each block of the
+ * terrain's still water or lava, or a block waterlogged with it, beside the hole's open air is a leak, leaks that lie together
+ * are an outflow, and each outflow gets a bowl under it or is plugged. Fluid that would run into a cave of the terrain's within the hole's edge falloff of its
  * open air is plugged as well: such caves often open into the hole, and where their water would come out is not known. This runs once the chunk's decoration is done, vanilla's springs included, and before
  * the chunk's fluids can flow, so a leak never runs before it is dealt with.
  *
@@ -179,10 +179,10 @@ final class WallBowls {
                                 continue;
                             }
                             // Asked only once a leak is in sight, as it is the dearer question.
-                            if (!terrain && !(terrain = footprint.isTerrainAt(pos.getX(), pos.getY(), pos.getZ()))) {
+                            if (!terrain && !(terrain = footprint.isTerrainFluidAt(pos.getX(), pos.getY(), pos.getZ()))) {
                                 break;
                             }
-                            leaks.add(new Leak(pos.immutable(), next.immutable(), state.is(Blocks.LAVA), !open));
+                            leaks.add(new Leak(pos.immutable(), next.immutable(), state.getFluidState().is(FluidTags.LAVA), !open));
                         }
                     }
                 }
@@ -191,8 +191,9 @@ final class WallBowls {
         return leaks;
     }
 
+    // A waterlogged block of the terrain's, as glow lichen or dripstone in an aquifer is, lets its water out as a source does.
     private static boolean isStillFluid(BlockState state) {
-        return state.getBlock() instanceof LiquidBlock && state.getFluidState().isSource();
+        return state.getFluidState().isSource();
     }
 
     // Leaks of one fluid whose outlets lie within TOGETHER of each other, joined in chains.
