@@ -36,7 +36,7 @@ import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
  * Catches what the wall of a hole lets out of the terrain in one chunk (see {@code WallBowlSettings}): each block of the
  * terrain's still water or lava, or a block waterlogged with it, beside the hole's open air is a leak, leaks that lie together
  * are an outflow, and each outflow gets a bowl under it or is plugged. Indirect leaks are plugged at the source
- * when they enter the edge falloff or a short downhill cave route to the hole. This runs after vanilla decoration,
+ * when they enter the edge falloff directly or through a short downhill cave route. This runs after vanilla decoration,
  * including springs, and before the chunk's fluids can flow.
  *
  * <p>Only the chunks a hole reaches are looked at, and in them only the sections whose palette holds a fluid, so the wall
@@ -197,7 +197,7 @@ final class WallBowls {
                                 leaks.add(new Leak(pos.immutable(), next.immutable(), lava, !open));
                                 continue;
                             }
-                            if (caves.reachesOpen(next)) {
+                            if (caves.reachesFalloff(next)) {
                                 // Plugging this source also closes its direct outlets, so do not build a bowl for them.
                                 leaks.subList(first, leaks.size()).clear();
                                 leaks.add(new Leak(pos.immutable(), next.immutable(), false, true));
@@ -212,11 +212,11 @@ final class WallBowls {
         return leaks;
     }
 
-    /** Read-only search within one decoration pass. Only the cave cells are probed for carved air. */
+    /** Read-only search within one decoration pass. The edge falloff also covers exposed ledges outside the ideal carve. */
     private static final class CaveRoutes {
         private static final byte BLOCKED = 1;
         private static final byte PASSABLE = 2;
-        private static final byte OPEN = 3;
+        private static final byte AT_WALL = 3;
         private static final byte DEAD_END = 4;
 
         private final WorldGenLevel level;
@@ -238,7 +238,7 @@ final class WallBowls {
             return state.isAir() || state.is(Blocks.POINTED_DRIPSTONE) && state.getFluidState().isEmpty();
         }
 
-        private boolean reachesOpen(BlockPos start) {
+        private boolean reachesFalloff(BlockPos start) {
             long origin = start.asLong();
             if (cells.get(origin) == DEAD_END) {
                 return false;
@@ -263,10 +263,10 @@ final class WallBowls {
                         if (cell == 0) {
                             BlockState state = level.getBlockState(probe);
                             cell = !canPass(state) ? BLOCKED
-                                    : footprint.isOpen(probe.getX(), probe.getY(), probe.getZ()) ? OPEN : PASSABLE;
+                                    : footprint.isNearOpen(probe.getX(), probe.getY(), probe.getZ()) ? AT_WALL : PASSABLE;
                             cells.put(next, cell);
                         }
-                        if (cell == OPEN) {
+                        if (cell == AT_WALL) {
                             return true;
                         }
                         if (cell == PASSABLE) {
